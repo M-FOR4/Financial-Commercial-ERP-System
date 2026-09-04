@@ -1,0 +1,124 @@
+# ==============================================================================
+# Comprehensive .gitignore for Financial & Commercial ERP System
+# Covers: ASP.NET Core / .NET, React / Node / Vite, IDEs, OS, Secrets, and Custom Tools
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# 1. External & Temporary Tool Folders
+# ------------------------------------------------------------------------------
+.freebuff/
+docs/
+readme.md
+run.bat
+# ------------------------------------------------------------------------------
+# 2. Environment Variables & Secrets
+# ------------------------------------------------------------------------------
+.env
+.env.*
+!.env.example
+!.env.template
+
+# ASP.NET user secrets & local config
+appsettings*.local.json
+appsettings.Secrets.json
+appsettings.Production.json
+
+# ------------------------------------------------------------------------------
+# 3. .NET / C# Build & Runtime Outputs
+# ------------------------------------------------------------------------------
+**/bin/
+**/obj/
+**/ref/
+**/refint/
+[Bb]in/
+[Oo]bj/
+
+# Visual Studio / Rider / Omnisharp cache & temporary files
+.vs/
+.idea/
+*.user
+*.userosscache
+*.sln.docstates
+*.suo
+*.userprefs
+*.pidb
+*.booproj
+*.svclog
+
+# Build results and test runner artifacts
+[Dd]ebug/
+[Rr]elease/
+x64/
+x86/
+[Aa][Rr][Mm]/
+[Aa][Rr][Mm]64/
+bld/
+[Bb]uild/
+[Bb]uildLog.*
+*.publishsettings
+TestResult*/
+[Tt]est[Rr]esults/
+*.trx
+*.coverage
+*.coveragexml
+
+# NuGet Packages directory & lock files
+*.nuget.props
+*.nuget.targets
+**/project.lock.json
+**/project.assets.json
+
+# ------------------------------------------------------------------------------
+# 4. Node / React / Frontend Artifacts
+# ------------------------------------------------------------------------------
+node_modules/
+**/node_modules/
+dist/
+**/dist/
+dist-ssr/
+**/dist-ssr/
+build/
+.next/
+.nuxt/
+.cache/
+
+# Frontend log files and stray logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+logs/
+**/logs/
+*frontend.log*
+
+# ------------------------------------------------------------------------------
+# 5. Editor & IDE Settings
+# ------------------------------------------------------------------------------
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+*.sw?
+*~
+*.bak
+
+# ------------------------------------------------------------------------------
+# 6. Operating System Files
+# ------------------------------------------------------------------------------
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+
+# Linux
+*~
