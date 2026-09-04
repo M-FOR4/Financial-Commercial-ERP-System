@@ -143,6 +143,10 @@ var app = builder.Build();
 // Configure HTTP request pipeline
 app.UseMiddleware<ExceptionMiddleware>();
 
+// One concise log line per request (method, path, status) so it is always clear
+// whether a request reached this API and how it was answered.
+app.UseSerilogRequestLogging();
+
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
@@ -171,7 +175,9 @@ app.MapGet("/api/health", () => Results.Ok(new
 .WithName("HealthCheck")
 .WithTags("System");
 
-// Auto-apply pending database migrations and seed default COA on startup if PostgreSQL is running
+// Auto-apply pending database migrations and seed default data on startup.
+// A failure here is fatal: continuing with a missing/broken schema would leave the API
+// "healthy" (the health endpoint never touches the DB) while every real request throws.
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
@@ -188,7 +194,9 @@ using (var scope = app.Services.CreateScope())
     }
     catch (Exception ex)
     {
-        Log.Warning("Database migration / seed check completed with message: {Message}", ex.Message);
+        Log.Fatal(ex, "Database migration or seeding FAILED. The API cannot serve requests without a working database schema.");
+        Log.CloseAndFlush();
+        throw;
     }
 }
 

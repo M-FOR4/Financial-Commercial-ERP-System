@@ -1,7 +1,10 @@
 import axios, { type AxiosError, type InternalAxiosRequestConfig } from 'axios';
 import { useAuthStore } from '../store/useAuthStore';
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+// The localhost fallback is DEV-ONLY: vite.config.ts fails production builds when
+// VITE_API_BASE_URL is missing, so a deployed bundle can never silently target
+// the visitor's own machine.
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || (import.meta.env.DEV ? 'http://localhost:8000' : '');
 
 export const api = axios.create({
   baseURL: API_BASE_URL,
