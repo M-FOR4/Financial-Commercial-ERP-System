@@ -41,7 +41,7 @@ export const HealthStatus: React.FC = () => {
       {isLoading && (
         <div className="flex items-center justify-center p-8 text-muted-foreground space-x-3">
           <div className="w-5 h-5 border-2 border-primary border-t-transparent rounded-full animate-spin" />
-          <span>جاري الاتصال بـ ASP.NET Core API على http://localhost:8000...</span>
+          <span>جاري الاتصال بـ ASP.NET Core API...</span>
         </div>
       )}
 
@@ -52,7 +52,7 @@ export const HealthStatus: React.FC = () => {
             <span>الخادم غير متصل أو غير قابل للوصول</span>
           </div>
           <p className="text-sm opacity-90 mb-3">
-            لا يمكن الاتصال بـ ASP.NET Core API على <code className="bg-destructive/20 px-1.5 py-0.5 rounded">http://localhost:8000</code>.
+            لا يمكن الاتصال بـ ASP.NET Core API على <code className="bg-destructive/20 px-1.5 py-0.5 rounded">{import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'}</code>.
           </p>
           <p className="text-xs font-mono">
             {error instanceof Error ? error.message : 'تم رفض الاتصال.'}

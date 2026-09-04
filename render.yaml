@@ -1,0 +1,65 @@
+services:
+  # ----------------------------------------------------------------------------
+  # 1. Backend Web Service (ASP.NET Core 10 via Docker)
+  # ----------------------------------------------------------------------------
+  - type: web
+    name: erp-backend
+    runtime: docker
+    dockerfilePath: backend/Dockerfile
+    dockerContext: backend
+    plan: free
+    region: frankfurt
+    healthCheckPath: /api/health
+    envVars:
+      - key: ASPNETCORE_ENVIRONMENT
+        value: Production
+      - key: ConnectionStrings__DefaultConnection
+        fromDatabase:
+          name: erp-postgres
+          property: connectionString
+      - key: Jwt__Secret
+        generateValue: true
+      - key: Jwt__Issuer
+        value: ERP.Api
+      - key: Jwt__Audience
+        value: ERP.Client
+      - key: Jwt__ExpiryInMinutes
+        value: 120
+      - key: Cors__AllowedOrigins
+        fromService:
+          type: web
+          name: erp-frontend
+          property: url
+
+  # ----------------------------------------------------------------------------
+  # 2. Frontend Static Site (React + Vite SPA)
+  # ----------------------------------------------------------------------------
+  - type: web
+    name: erp-frontend
+    runtime: static
+    rootDir: frontend
+    buildCommand: npm install && npm run build
+    staticPublishPath: dist
+    plan: free
+    region: frankfurt
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
+    envVars:
+      - key: VITE_API_BASE_URL
+        fromService:
+          type: web
+          name: erp-backend
+          property: url
+
+# ------------------------------------------------------------------------------
+# 3. Managed PostgreSQL Database
+# ------------------------------------------------------------------------------
+databases:
+  - name: erp-postgres
+    databaseName: erp_db
+    user: erp_user
+    plan: free
+    region: frankfurt
+    ipAllowList: []

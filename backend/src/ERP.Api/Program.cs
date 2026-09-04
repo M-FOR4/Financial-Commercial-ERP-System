@@ -14,8 +14,9 @@ using Serilog;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Ensure URL is http://localhost:8000
-builder.WebHost.UseUrls("http://localhost:8000");
+// Configure listening port (Render assigns PORT environment variable dynamically, defaults to 8000 for local)
+var port = Environment.GetEnvironmentVariable("PORT") ?? "8000";
+builder.WebHost.UseUrls($"http://*:{port}");
 
 // Configure Serilog
 Log.Logger = new LoggerConfiguration()
@@ -52,12 +53,19 @@ builder.Services.AddScoped<IFixedAssetService, FixedAssetService>();
 builder.Services.AddScoped<IAuditService, AuditService>();
 builder.Services.AddScoped<IAdminService, AdminService>();
 
-// Configure CORS for http://localhost:5371
+// Configure CORS for local dev and Render production frontend
+var configuredAllowedOrigins = builder.Configuration["Cors:AllowedOrigins"] 
+    ?? Environment.GetEnvironmentVariable("FRONTEND_URL") 
+    ?? "http://localhost:5371";
+
+var allowedOrigins = configuredAllowedOrigins
+    .Split(new[] { ',', ';' }, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowFrontend", policy =>
     {
-        policy.WithOrigins("http://localhost:5371")
+        policy.WithOrigins(allowedOrigins)
               .AllowAnyHeader()
               .AllowAnyMethod()
               .AllowCredentials();
@@ -186,7 +194,7 @@ using (var scope = app.Services.CreateScope())
 
 try
 {
-    Log.Information("Starting ERP API host at http://localhost:8000...");
+    Log.Information("Starting ERP API host on port {Port}...", port);
     app.Run();
 }
 catch (Exception ex)
