@@ -27,8 +27,11 @@ Log.Logger = new LoggerConfiguration()
 
 builder.Host.UseSerilog();
 
-// Add DbContext with Npgsql and snake_case naming convention
-var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
+// Add DbContext with Npgsql and snake_case naming convention.
+// Render supplies the Postgres connection string as a postgresql:// URI (blueprint
+// "connectionString" property), so normalize it to the key=value format Npgsql expects.
+var connectionString = PostgresConnectionString.ToNpgsqlFormat(
+    builder.Configuration.GetConnectionString("DefaultConnection"));
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseNpgsql(connectionString)
            .UseSnakeCaseNamingConvention());
