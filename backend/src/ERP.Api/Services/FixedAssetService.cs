@@ -1,3 +1,4 @@
+using ERP.Api.Common;
 using ERP.Api.Data;
 using ERP.Api.Domain.Entities;
 using ERP.Api.Domain.Enums;
@@ -166,7 +167,7 @@ public class FixedAssetService : IFixedAssetService
                 AssetCode = request.AssetCode,
                 Name = request.Name,
                 CategoryId = request.CategoryId,
-                PurchaseDate = request.PurchaseDate,
+                PurchaseDate = request.PurchaseDate.ToUtc(),
                 PurchaseCost = request.PurchaseCost,
                 SalvageValue = request.SalvageValue,
                 UsefulLifeYears = request.UsefulLifeYears,
@@ -183,7 +184,7 @@ public class FixedAssetService : IFixedAssetService
             {
                 Id = Guid.NewGuid(),
                 EntryNumber = await GenerateJournalEntryNumberAsync(),
-                EntryDate = request.PurchaseDate,
+                EntryDate = request.PurchaseDate.ToUtc(),
                 Description = $"Register Fixed Asset: {request.Name} ({request.AssetCode})",
                 Status = JournalEntryStatus.Posted,
                 PostedAt = DateTime.UtcNow
@@ -246,7 +247,7 @@ public class FixedAssetService : IFixedAssetService
         asset.AssetCode = request.AssetCode;
         asset.Name = request.Name;
         asset.CategoryId = request.CategoryId;
-        asset.PurchaseDate = request.PurchaseDate;
+        asset.PurchaseDate = request.PurchaseDate.ToUtc();
         asset.PurchaseCost = request.PurchaseCost;
         asset.SalvageValue = request.SalvageValue;
         asset.UsefulLifeYears = request.UsefulLifeYears;
@@ -263,6 +264,13 @@ public class FixedAssetService : IFixedAssetService
 
     public async Task<DepreciationRunResponse> RunDepreciationAsync(DepreciationRunRequest request)
     {
+        // Npgsql requires UTC Kind for timestamptz columns; body dates arrive as Unspecified.
+        request = request with
+        {
+            PeriodStartDate = request.PeriodStartDate.ToUtc(),
+            PeriodEndDate = request.PeriodEndDate.ToUtc()
+        };
+
         if (request.PeriodStartDate >= request.PeriodEndDate)
             throw new InvalidOperationException("Period start date must be before end date.");
 

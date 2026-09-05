@@ -1,3 +1,4 @@
+using ERP.Api.Common;
 using ERP.Api.Data;
 using ERP.Api.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
@@ -33,6 +34,10 @@ public class AuditService : IAuditService
 
     public async Task<List<AuditLog>> GetLogsAsync(Guid? userId = null, string? action = null, string? entityName = null, DateTime? fromDate = null, DateTime? toDate = null, int skip = 0, int take = 100)
     {
+        // Npgsql requires UTC Kind for timestamptz comparisons; query-string dates arrive as Unspecified.
+        fromDate = fromDate.ToUtc();
+        toDate = toDate.ToUtc();
+
         var query = _db.AuditLogs
             .Include(al => al.User)
             .AsNoTracking()
@@ -58,6 +63,10 @@ public class AuditService : IAuditService
 
     public async Task<int> GetLogsCountAsync(Guid? userId = null, string? action = null, string? entityName = null, DateTime? fromDate = null, DateTime? toDate = null)
     {
+        // Npgsql requires UTC Kind for timestamptz comparisons; query-string dates arrive as Unspecified.
+        fromDate = fromDate.ToUtc();
+        toDate = toDate.ToUtc();
+
         var query = _db.AuditLogs.AsNoTracking().AsQueryable();
 
         if (userId.HasValue)

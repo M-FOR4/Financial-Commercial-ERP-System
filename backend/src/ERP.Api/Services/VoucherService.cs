@@ -1,3 +1,4 @@
+using ERP.Api.Common;
 using ERP.Api.Data;
 using ERP.Api.DTOs;
 using ERP.Api.Domain.Entities;
@@ -69,7 +70,7 @@ public class VoucherService : IVoucherService
             CompanyId = companyId,
             VoucherNumber = await GenerateVoucherNumberAsync(request.VoucherType),
             VoucherType = request.VoucherType,
-            Date = request.Date,
+            Date = request.Date.ToUtc(),
             TreasuryId = request.TreasuryId,
             PartyType = request.PartyType,
             PartyId = request.PartyId,
@@ -389,7 +390,7 @@ public class VoucherService : IVoucherService
             TransferNumber = await GenerateTransferNumberAsync(),
             FromTreasuryId = request.FromTreasuryId,
             ToTreasuryId = request.ToTreasuryId,
-            Date = request.Date,
+            Date = request.Date.ToUtc(),
             Amount = request.Amount,
             Reference = request.Reference,
             Status = JournalEntryStatus.Draft,

@@ -1,3 +1,4 @@
+using ERP.Api.Common;
 using ERP.Api.Data;
 using ERP.Api.Domain.Entities;
 using ERP.Api.Domain.Enums;
@@ -64,7 +65,7 @@ public class PurchaseService : IPurchaseService
             CompanyId = companyId,
             InvoiceNumber = invoiceNumber,
             SupplierId = request.SupplierId, WarehouseId = request.WarehouseId,
-            InvoiceDate = request.InvoiceDate ?? DateTime.UtcNow, DueDate = request.DueDate,
+            InvoiceDate = request.InvoiceDate.ToUtc() ?? DateTime.UtcNow, DueDate = request.DueDate.ToUtc(),
             TaxAmount = request.TaxAmount, AdditionalCosts = request.AdditionalCosts,
             Notes = request.Notes?.Trim(), Status = JournalEntryStatus.Draft, CreatedAt = DateTime.UtcNow
         };

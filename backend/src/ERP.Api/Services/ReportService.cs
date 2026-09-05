@@ -1,3 +1,4 @@
+using ERP.Api.Common;
 using ERP.Api.Data;
 using ERP.Api.DTOs;
 using ERP.Api.Domain.Enums;
@@ -183,6 +184,9 @@ public class ReportService : IReportService
 
     public async Task<AccountStatementResponse> GetAccountStatementAsync(AccountStatementRequest request)
     {
+        // Npgsql requires UTC Kind for timestamptz comparisons; body dates arrive as Unspecified.
+        request = request with { FromDate = request.FromDate.ToUtc(), ToDate = request.ToDate.ToUtc() };
+
         string partyName = "", partyCode = "";
         decimal openingBalance = 0;
 
@@ -345,6 +349,9 @@ public class ReportService : IReportService
 
     public async Task<StockLedgerResponse> GetStockLedgerAsync(StockLedgerRequest request)
     {
+        // Npgsql requires UTC Kind for timestamptz comparisons; body dates arrive as Unspecified.
+        request = request with { FromDate = request.FromDate.ToUtc(), ToDate = request.ToDate.ToUtc() };
+
         var query = _db.StockMovements
             .Include(sm => sm.Product)
             .Include(sm => sm.Warehouse)

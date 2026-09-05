@@ -1,3 +1,4 @@
+using ERP.Api.Common;
 using ERP.Api.Data;
 using ERP.Api.Domain.Entities;
 using ERP.Api.Domain.Enums;
@@ -267,6 +268,11 @@ public class AccountingService : IAccountingService
         JournalEntryStatus? status = null,
         string? search = null)
     {
+        // Npgsql requires UTC Kind for timestamptz comparisons; query-string dates arrive as Unspecified.
+        // (Treating them as UTC via SpecifyKind is correct — ToUniversalTime would shift naive dates by the server offset.)
+        fromDate = fromDate.ToUtc();
+        toDate = toDate.ToUtc();
+
         var query = _context.JournalEntries
             .Include(je => je.PostedByUser)
             .Include(je => je.Lines)
@@ -276,12 +282,12 @@ public class AccountingService : IAccountingService
 
         if (fromDate.HasValue)
         {
-            query = query.Where(je => je.EntryDate >= fromDate.Value.ToUniversalTime());
+            query = query.Where(je => je.EntryDate >= fromDate.Value);
         }
 
         if (toDate.HasValue)
         {
-            query = query.Where(je => je.EntryDate <= toDate.Value.ToUniversalTime());
+            query = query.Where(je => je.EntryDate <= toDate.Value);
         }
 
         if (status.HasValue)
@@ -323,7 +329,7 @@ public class AccountingService : IAccountingService
         var entry = new JournalEntry
         {
             EntryNumber = entryNumber,
-            EntryDate = request.EntryDate ?? DateTime.UtcNow,
+            EntryDate = request.EntryDate.ToUtc() ?? DateTime.UtcNow,
             Description = request.Description.Trim(),
             Status = JournalEntryStatus.Draft,
             CreatedAt = DateTime.UtcNow
@@ -371,7 +377,7 @@ public class AccountingService : IAccountingService
 
         ValidateJournalLines(request.Lines);
 
-        entry.EntryDate = request.EntryDate ?? entry.EntryDate;
+        entry.EntryDate = request.EntryDate.ToUtc() ?? entry.EntryDate;
         entry.Description = request.Description.Trim();
         entry.UpdatedAt = DateTime.UtcNow;
 

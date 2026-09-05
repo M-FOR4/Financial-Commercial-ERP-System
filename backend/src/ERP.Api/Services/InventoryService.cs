@@ -1,3 +1,4 @@
+using ERP.Api.Common;
 using ERP.Api.Data;
 using ERP.Api.Domain.Entities;
 using ERP.Api.Domain.Enums;
@@ -260,6 +261,11 @@ public class InventoryService : IInventoryService
         Guid? productId = null, Guid? warehouseId = null,
         MovementType? type = null, DateTime? fromDate = null, DateTime? toDate = null)
     {
+        // Npgsql requires UTC Kind for timestamptz comparisons; query-string dates arrive as Unspecified.
+        // (Treating them as UTC via SpecifyKind is correct — ToUniversalTime would shift naive dates by the server offset.)
+        fromDate = fromDate.ToUtc();
+        toDate = toDate.ToUtc();
+
         var query = _context.StockMovements
             .Include(sm => sm.Product)
             .Include(sm => sm.Warehouse)
@@ -277,10 +283,10 @@ public class InventoryService : IInventoryService
             query = query.Where(sm => sm.MovementType == type.Value);
 
         if (fromDate.HasValue)
-            query = query.Where(sm => sm.MovementDate >= fromDate.Value.ToUniversalTime());
+            query = query.Where(sm => sm.MovementDate >= fromDate.Value);
 
         if (toDate.HasValue)
-            query = query.Where(sm => sm.MovementDate <= toDate.Value.ToUniversalTime());
+            query = query.Where(sm => sm.MovementDate <= toDate.Value);
 
         var movements = await query.OrderByDescending(sm => sm.MovementDate).ThenByDescending(sm => sm.CreatedAt).ToListAsync();
         return movements.Select(MapToStockMovementDto).ToList();
@@ -349,7 +355,7 @@ public class InventoryService : IInventoryService
                 UnitCost = request.UnitCost,
                 ReferenceDocument = request.ReferenceDocument?.Trim(),
                 Notes = request.Notes?.Trim(),
-                MovementDate = request.MovementDate ?? DateTime.UtcNow,
+                MovementDate = request.MovementDate.ToUtc() ?? DateTime.UtcNow,
                 CreatedByUserId = createdByUserId,
                 CreatedAt = DateTime.UtcNow
             };
