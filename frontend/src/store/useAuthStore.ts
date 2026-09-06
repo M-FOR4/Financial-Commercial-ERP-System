@@ -93,25 +93,24 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     });
   },
 
+  // Authorization is driven STRICTLY by the evaluated permissions list (the
+  // server always includes role-derived permissions in user.permissions), never
+  // by static role-name checks. The role string is only a UI label/preset.
   hasPermission: (permissionName: string) => {
     const { user } = get();
     if (!user || !user.isActive) return false;
-    // Admin role always has all permissions (fast path)
-    if (user.role === 'Admin') return true;
     return user.permissions.includes(permissionName);
   },
 
   hasAnyPermission: (...permissionNames: string[]) => {
     const { user } = get();
     if (!user || !user.isActive) return false;
-    if (user.role === 'Admin') return true;
     return permissionNames.some((p) => user.permissions.includes(p));
   },
 
   hasAllPermissions: (...permissionNames: string[]) => {
     const { user } = get();
     if (!user || !user.isActive) return false;
-    if (user.role === 'Admin') return true;
     return permissionNames.every((p) => user.permissions.includes(p));
   },
 }));

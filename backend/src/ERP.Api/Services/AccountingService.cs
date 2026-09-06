@@ -326,10 +326,27 @@ public class AccountingService : IAccountingService
         var countToday = await _context.JournalEntries.CountAsync();
         var entryNumber = $"JE-{DateTime.UtcNow:yyyyMM}-{countToday + 1:D4}";
 
+        var entryDate = request.EntryDate.ToUtc() ?? DateTime.UtcNow;
+
+        var firstAccountId = request.Lines.FirstOrDefault()?.AccountId;
+        Guid companyId = Guid.Empty;
+        if (firstAccountId.HasValue)
+        {
+            var firstAcc = await _context.Accounts.FindAsync(firstAccountId.Value);
+            if (firstAcc != null) companyId = firstAcc.CompanyId;
+        }
+
+        var fiscalYear = await _context.FiscalYears
+            .FirstOrDefaultAsync(fy => fy.CompanyId == companyId && fy.IsActive
+                                       && fy.StartDate <= entryDate && entryDate <= fy.EndDate)
+            ?? await _context.FiscalYears.FirstOrDefaultAsync(fy => fy.CompanyId == companyId && fy.IsActive);
+
         var entry = new JournalEntry
         {
+            CompanyId = companyId,
+            FiscalYearId = fiscalYear?.Id ?? Guid.Empty,
             EntryNumber = entryNumber,
-            EntryDate = request.EntryDate.ToUtc() ?? DateTime.UtcNow,
+            EntryDate = entryDate,
             Description = request.Description.Trim(),
             Status = JournalEntryStatus.Draft,
             CreatedAt = DateTime.UtcNow

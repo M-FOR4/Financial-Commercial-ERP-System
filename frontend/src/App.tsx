@@ -108,7 +108,7 @@ export const App: React.FC = () => {
           <Route
             path="/sales/invoices"
             element={
-              <ProtectedRoute requiredPermission="Sales.SalesInvoice.View">
+              <ProtectedRoute requiredPermission="Sales.Invoice.View">
                 <AppLayout>
                   <Invoices />
                 </AppLayout>
@@ -118,7 +118,7 @@ export const App: React.FC = () => {
           <Route
             path="/sales/returns"
             element={
-              <ProtectedRoute requiredPermission="Sales.SalesReturn.View">
+              <ProtectedRoute requiredPermission="Sales.Return.View">
                 <AppLayout>
                   <Returns />
                 </AppLayout>
@@ -126,8 +126,8 @@ export const App: React.FC = () => {
             }
           />
           <Route path="/purchases/suppliers" element={<ProtectedRoute requiredPermission="Supplier.Supplier.View"><AppLayout><Suppliers /></AppLayout></ProtectedRoute>} />
-          <Route path="/purchases/invoices" element={<ProtectedRoute requiredPermission="Purchase.PurchaseInvoice.View"><AppLayout><PurchaseInvoices /></AppLayout></ProtectedRoute>} />
-          <Route path="/purchases/returns" element={<ProtectedRoute requiredPermission="Purchase.PurchaseReturn.View"><AppLayout><PurchaseReturns /></AppLayout></ProtectedRoute>} />
+          <Route path="/purchases/invoices" element={<ProtectedRoute requiredPermission="Purchase.Invoice.View"><AppLayout><PurchaseInvoices /></AppLayout></ProtectedRoute>} />
+          <Route path="/purchases/returns" element={<ProtectedRoute requiredPermission="Purchase.Return.View"><AppLayout><PurchaseReturns /></AppLayout></ProtectedRoute>} />
           <Route path="/cash/treasuries" element={<ProtectedRoute requiredPermission="Cash.CashAccount.View"><AppLayout><Treasuries /></AppLayout></ProtectedRoute>} />
           <Route path="/cash/vouchers" element={<ProtectedRoute requiredPermission="Cash.Receipt.View"><AppLayout><CashVouchers /></AppLayout></ProtectedRoute>} />
           <Route path="/cash/transfers" element={<ProtectedRoute requiredPermission="Cash.Transfer.View"><AppLayout><Transfers /></AppLayout></ProtectedRoute>} />

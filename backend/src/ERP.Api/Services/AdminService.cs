@@ -1,4 +1,5 @@
 using System.Text.Json;
+using ERP.Api.Common.Authorization;
 using ERP.Api.Data;
 using ERP.Api.Domain.Entities;
 using ERP.Api.DTOs;
@@ -42,6 +43,13 @@ public class AdminService : IAdminService
         if (await _db.Users.AnyAsync(u => u.Username.ToLower() == request.Username.ToLower()))
             throw new InvalidOperationException($"Username '{request.Username}' already exists.");
 
+        // Roles are UI presets only: if no explicit permission list is given, fall back
+        // to the role's preset so the account is never left with zero permissions.
+        // The STORED permissions (PermissionsJson) are the ground truth for authorization.
+        var permissions = request.Permissions is { Count: > 0 }
+            ? request.Permissions
+            : RolePresets.For(request.Role)?.ToList() ?? new List<string>();
+
         var user = new User
         {
             Id = Guid.NewGuid(),
@@ -51,7 +59,7 @@ public class AdminService : IAdminService
             Role = request.Role ?? "Accountant",
             IsActive = true,
             CreatedAt = DateTime.UtcNow,
-            PermissionsJson = JsonSerializer.Serialize(request.Permissions ?? new List<string>())
+            PermissionsJson = JsonSerializer.Serialize(permissions)
         };
 
         _db.Users.Add(user);
@@ -77,7 +85,13 @@ public class AdminService : IAdminService
         user.FullName = request.FullName.Trim();
         user.Role = request.Role;
         user.IsActive = request.IsActive;
-        user.PermissionsJson = JsonSerializer.Serialize(request.Permissions ?? new List<string>());
+        // Permissions are the ground truth: honor exactly what the admin sent.
+        // null = caller did not include a list -> keep existing stored permissions.
+        // An explicit empty list is intentional (admin deselected every checkbox).
+        if (request.Permissions != null)
+        {
+            user.PermissionsJson = JsonSerializer.Serialize(request.Permissions);
+        }
         user.UpdatedAt = DateTime.UtcNow;
 
         await _db.SaveChangesAsync();

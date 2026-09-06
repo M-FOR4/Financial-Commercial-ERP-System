@@ -70,6 +70,18 @@ public class FixedAssetTests
         db.AssetCategories.Add(category);
         await db.SaveChangesAsync();
 
+        var fiscalYear = new FiscalYear
+        {
+            Id = Guid.NewGuid(),
+            CompanyId = category.CompanyId,
+            Name = "FY 2026",
+            StartDate = new DateTime(2020, 1, 1, 0, 0, 0, DateTimeKind.Utc),
+            EndDate = new DateTime(2030, 12, 31, 23, 59, 59, DateTimeKind.Utc),
+            IsActive = true
+        };
+        db.FiscalYears.Add(fiscalYear);
+        await db.SaveChangesAsync();
+
         return (category, assetAcc, accumAcc, deprExpAcc);
     }
 

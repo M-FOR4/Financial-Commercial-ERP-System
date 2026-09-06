@@ -1,3 +1,4 @@
+using ERP.Api.Common.Authorization;
 using ERP.Api.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -6,7 +7,8 @@ namespace ERP.Api.Controllers;
 
 [ApiController]
 [Route("api/audit-logs")]
-[Authorize(Roles = "Admin")]
+[Authorize]
+[HasPermission("Reports.Reports.ViewAccountingReports")]
 public class AuditController : ControllerBase
 {
     private readonly IAuditService _auditService;

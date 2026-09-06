@@ -1,3 +1,4 @@
+using ERP.Api.Common.Authorization;
 using ERP.Api.DTOs;
 using ERP.Api.Services;
 using Microsoft.AspNetCore.Authorization;
@@ -7,7 +8,7 @@ namespace ERP.Api.Controllers;
 
 [ApiController]
 [Route("api/users")]
-[Authorize(Roles = "Admin")]
+[Authorize]
 public class UsersController : ControllerBase
 {
     private readonly IAdminService _adminService;
@@ -17,6 +18,7 @@ public class UsersController : ControllerBase
         _adminService = adminService;
     }
 
+    [HasPermission("Admin.User.View")]
     [HttpGet]
     public async Task<IActionResult> GetAllUsers()
     {
@@ -24,6 +26,7 @@ public class UsersController : ControllerBase
         return Ok(users);
     }
 
+    [HasPermission("Admin.User.View")]
     [HttpGet("{id:guid}")]
     public async Task<IActionResult> GetUserById(Guid id)
     {
@@ -32,6 +35,7 @@ public class UsersController : ControllerBase
         return Ok(user);
     }
 
+    [HasPermission("Admin.User.Add")]
     [HttpPost]
     public async Task<IActionResult> CreateUser([FromBody] RegisterRequest request)
     {
@@ -46,6 +50,7 @@ public class UsersController : ControllerBase
         }
     }
 
+    [HasPermission("Admin.User.Edit")]
     [HttpPut("{id:guid}")]
     public async Task<IActionResult> UpdateUser(Guid id, [FromBody] UpdateUserRequest request)
     {
@@ -61,6 +66,7 @@ public class UsersController : ControllerBase
         }
     }
 
+    [HasPermission("Admin.User.Edit")]
     [HttpPost("{id:guid}/toggle-active")]
     public async Task<IActionResult> ToggleActive(Guid id)
     {
@@ -76,6 +82,7 @@ public class UsersController : ControllerBase
         }
     }
 
+    [HasPermission("Admin.User.ResetCredentials")]
     [HttpPost("{id:guid}/reset-password")]
     public async Task<IActionResult> ResetPassword(Guid id, [FromBody] ResetPasswordRequest request)
     {

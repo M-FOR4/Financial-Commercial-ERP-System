@@ -111,16 +111,16 @@ public class VoucherService : IVoucherService
             if (voucher.VoucherType == VoucherType.Payment && treasury.Balance < voucher.Amount)
                 throw new InvalidOperationException($"Insufficient treasury balance. Available: {treasury.Balance}.");
 
-            // Create Journal Entry
-            var fiscalYear = await _db.FiscalYears
-                .FirstOrDefaultAsync(fy => fy.CompanyId == voucher.CompanyId && fy.IsActive);
-            if (fiscalYear == null)
-                throw new InvalidOperationException("No active fiscal year found.");
+            // Create Journal Entry — resolve and validate the company's active fiscal year
+            // so FiscalYearId is always a valid FK (a missing fiscal year is a clear
+            // business error, never a raw 23503 constraint violation).
+            var fiscalYear = await GetActiveFiscalYearAsync(voucher.CompanyId, voucher.Date);
 
             var journalEntry = new JournalEntry
             {
                 Id = Guid.NewGuid(),
                 CompanyId = voucher.CompanyId,
+                BranchId = voucher.BranchId,
                 FiscalYearId = fiscalYear.Id,
                 EntryNumber = await GenerateJournalEntryNumberAsync(),
                 Description = $"Cash {voucher.VoucherType}: {voucher.Description}",
@@ -240,15 +240,22 @@ public class VoucherService : IVoucherService
         {
             var treasury = voucher.Treasury;
 
-            // Create reversing Journal Entry
+            // Create reversing Journal Entry — active fiscal year must be valid so the
+            // required FiscalYearId FK is never left empty.
+            var fiscalYear = await GetActiveFiscalYearAsync(voucher.CompanyId, DateTime.UtcNow);
             var journalEntry = new JournalEntry
             {
                 Id = Guid.NewGuid(),
+                CompanyId = voucher.CompanyId,
+                BranchId = voucher.BranchId,
+                FiscalYearId = fiscalYear.Id,
                 EntryNumber = await GenerateJournalEntryNumberAsync(),
                 Description = $"Cancel Cash {voucher.VoucherType}: {voucher.Description}",
                 EntryDate = DateTime.UtcNow,
                 Status = JournalEntryStatus.Posted,
                 PostedByUserId = voucher.CreatedByUserId,
+                SourceDocumentType = "CashVoucher",
+                SourceDocumentId = voucher.Id.ToString(),
                 PostedAt = DateTime.UtcNow
             };
 
@@ -384,9 +391,13 @@ public class VoucherService : IVoucherService
         if (fromTreasury.Balance < request.Amount)
             throw new InvalidOperationException($"Insufficient balance in source treasury. Available: {fromTreasury.Balance}.");
 
+        // Treasuries are company-scoped: carry the company/branch onto the voucher so
+        // the required CompanyId FK is never left as Guid.Empty.
         var voucher = new TransferVoucher
         {
             Id = Guid.NewGuid(),
+            CompanyId = fromTreasury.CompanyId,
+            BranchId = fromTreasury.BranchId,
             TransferNumber = await GenerateTransferNumberAsync(),
             FromTreasuryId = request.FromTreasuryId,
             ToTreasuryId = request.ToTreasuryId,
@@ -428,15 +439,28 @@ public class VoucherService : IVoucherService
             if (fromTreasury.Balance < voucher.Amount)
                 throw new InvalidOperationException($"Insufficient balance in source treasury. Available: {fromTreasury.Balance}.");
 
+            // Resolve the company/branch (self-heal legacy rows whose CompanyId was never
+            // set) and validate the active fiscal year up front. Leaving FiscalYearId as
+            // Guid.Empty would surface as a raw 23503 FK violation / HTTP 500 instead of
+            // a clear business error.
+            var companyId = voucher.CompanyId != Guid.Empty ? voucher.CompanyId : fromTreasury.CompanyId;
+            var branchId = voucher.BranchId ?? fromTreasury.BranchId;
+            var fiscalYear = await GetActiveFiscalYearAsync(companyId, voucher.Date);
+
             // Create Journal Entry: Credit source treasury account, Debit destination treasury account
             var journalEntry = new JournalEntry
             {
                 Id = Guid.NewGuid(),
+                CompanyId = companyId,
+                BranchId = branchId,
+                FiscalYearId = fiscalYear.Id,
                 EntryNumber = await GenerateJournalEntryNumberAsync(),
                 Description = $"Transfer: {fromTreasury.Name} → {toTreasury.Name}",
                 EntryDate = voucher.Date,
                 Status = JournalEntryStatus.Posted,
                 PostedByUserId = voucher.CreatedByUserId,
+                SourceDocumentType = "TransferVoucher",
+                SourceDocumentId = voucher.Id.ToString(),
                 PostedAt = DateTime.UtcNow
             };
 
@@ -463,9 +487,15 @@ public class VoucherService : IVoucherService
             fromTreasury.Balance -= voucher.Amount;
             toTreasury.Balance += voucher.Amount;
 
-            // Link and update status
+            // Link and update status (repair legacy rows missing company/branch)
             voucher.JournalEntryId = journalEntry.Id;
             voucher.Status = JournalEntryStatus.Posted;
+            if (voucher.CompanyId == Guid.Empty)
+            {
+                voucher.CompanyId = companyId;
+                voucher.BranchId = branchId;
+                voucher.UpdatedAt = DateTime.UtcNow;
+            }
 
             await _db.SaveChangesAsync();
 
@@ -501,15 +531,26 @@ public class VoucherService : IVoucherService
             var fromTreasury = voucher.FromTreasury;
             var toTreasury = voucher.ToTreasury;
 
+            // Resolve company/branch and active fiscal year so the reversing entry never
+            // carries an empty FiscalYearId (FK violation / raw 500).
+            var companyId = voucher.CompanyId != Guid.Empty ? voucher.CompanyId : fromTreasury.CompanyId;
+            var branchId = voucher.BranchId ?? fromTreasury.BranchId;
+            var fiscalYear = await GetActiveFiscalYearAsync(companyId, DateTime.UtcNow);
+
             // Create reversing Journal Entry: Debit source treasury, Credit destination treasury
             var journalEntry = new JournalEntry
             {
                 Id = Guid.NewGuid(),
+                CompanyId = companyId,
+                BranchId = branchId,
+                FiscalYearId = fiscalYear.Id,
                 EntryNumber = await GenerateJournalEntryNumberAsync(),
                 Description = $"Cancel Transfer: {fromTreasury.Name} → {toTreasury.Name}",
                 EntryDate = DateTime.UtcNow,
                 Status = JournalEntryStatus.Posted,
                 PostedByUserId = voucher.CreatedByUserId,
+                SourceDocumentType = "TransferVoucher",
+                SourceDocumentId = voucher.Id.ToString(),
                 PostedAt = DateTime.UtcNow
             };
 
@@ -556,6 +597,24 @@ public class VoucherService : IVoucherService
     // ═══════════════════════════════════
     //  PRIVATE HELPERS
     // ═══════════════════════════════════
+
+    /// <summary>
+    /// Resolves the active fiscal year for a company for the given transaction date.
+    /// Prefers an active fiscal year whose [StartDate, EndDate] contains the date, then
+    /// falls back to any active fiscal year, and finally throws a clear business error —
+    /// so callers never insert a JournalEntry with an empty/invalid FiscalYearId (which
+    /// would surface as a raw Npgsql 23503 FK violation / HTTP 500).
+    /// </summary>
+    private async Task<FiscalYear> GetActiveFiscalYearAsync(Guid companyId, DateTime transactionDate)
+    {
+        var fiscalYear = await _db.FiscalYears
+            .FirstOrDefaultAsync(fy => fy.CompanyId == companyId && fy.IsActive
+                                       && fy.StartDate <= transactionDate && transactionDate <= fy.EndDate)
+            ?? await _db.FiscalYears.FirstOrDefaultAsync(fy => fy.CompanyId == companyId && fy.IsActive);
+
+        return fiscalYear
+            ?? throw new InvalidOperationException("No active fiscal year found for this transaction date.");
+    }
 
     private async Task<string> GenerateVoucherNumberAsync(VoucherType type)
     {

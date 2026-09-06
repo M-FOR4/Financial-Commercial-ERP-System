@@ -24,6 +24,7 @@ import {
   LogOut,
   User,
   ChevronDown,
+  ChevronUp,
   Menu,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
@@ -58,12 +59,12 @@ const navigation: NavGroup[] = [
   {
     title: 'العمليات التجارية',
     items: [
-      { type: 'item', to: '/sales/invoices', label: 'المبيعات والفواتير', icon: ShoppingCart, end: true, permission: 'Sales.SalesInvoice.View' },
+      { type: 'item', to: '/sales/invoices', label: 'المبيعات والفواتير', icon: ShoppingCart, end: true, permission: 'Sales.Invoice.View' },
       { type: 'item', to: '/sales/customers', label: 'العملاء', icon: Users, end: true, permission: 'Customer.Customer.View' },
-      { type: 'item', to: '/sales/returns', label: 'مرتجعات المبيعات', icon: ShoppingCart, end: true, permission: 'Sales.SalesReturn.View' },
-      { type: 'item', to: '/purchases/invoices', label: 'المشتريات والطلبيات', icon: ShoppingBag, end: true, permission: 'Purchase.PurchaseInvoice.View' },
+      { type: 'item', to: '/sales/returns', label: 'مرتجعات المبيعات', icon: ShoppingCart, end: true, permission: 'Sales.Return.View' },
+      { type: 'item', to: '/purchases/invoices', label: 'المشتريات والطلبيات', icon: ShoppingBag, end: true, permission: 'Purchase.Invoice.View' },
       { type: 'item', to: '/purchases/suppliers', label: 'الموردون', icon: Users, end: true, permission: 'Supplier.Supplier.View' },
-      { type: 'item', to: '/purchases/returns', label: 'مرتجعات المشتريات', icon: ShoppingBag, end: true, permission: 'Purchase.PurchaseReturn.View' },
+      { type: 'item', to: '/purchases/returns', label: 'مرتجعات المشتريات', icon: ShoppingBag, end: true, permission: 'Purchase.Return.View' },
       { type: 'item', to: '/inventory/products', label: 'إدارة المخزون', icon: Package, end: true, permission: 'Inventory.Item.View' },
       { type: 'item', to: '/inventory/stock-movements', label: 'حركات المخزون', icon: Package, end: true, permission: 'Inventory.Movement.View' },
       { type: 'item', to: '/cash/vouchers', label: 'سندات القبض والصرف', icon: Wallet, end: true, permission: 'Cash.Receipt.View' },
@@ -82,7 +83,8 @@ const navigation: NavGroup[] = [
   },
   {
     title: 'إعدادات النظام',
-    permission: 'Admin.User.View',
+    // A parent group is visible if the user holds AT LEAST ONE child permission
+    // (no group-level gate), so e.g. a user with only audit-log access still sees it.
     items: [
       { type: 'item', to: '/settings/users', label: 'إدارة المستخدمين', icon: UserCheck, permission: 'Admin.User.View', end: true },
       { type: 'item', to: '/settings/audit-logs', label: 'سجل الحركات', icon: ShieldAlert, permission: 'Reports.Reports.ViewAccountingReports', end: true },
@@ -114,15 +116,22 @@ interface SidebarProps {
 const Sidebar: React.FC<SidebarProps> = ({ open, onToggle }) => {
   const { user, hasPermission } = useAuthStore();
 
-  const filteredNav = navigation
-    .filter((g) => !g.permission || hasPermission(g.permission))
+  // Hierarchical visibility: a parent group stays visible if the user has AT LEAST
+  // ONE permitted child link; non-permitted child links are hidden completely.
+  const visibleNav = navigation
     .map((g) => ({
-      ...g,
+      group: g,
       items: g.items.filter(
         (item) => !item.permission || hasPermission(item.permission)
       ),
     }))
-    .filter((g) => g.items.length > 0);
+    .filter(({ items }) => items.length > 0);
+
+  // Groups are collapsible; by default every visible group is expanded.
+  const [collapsedGroups, setCollapsedGroups] = useState<Record<number, boolean>>({});
+  const isGroupExpanded = (gIdx: number) => !collapsedGroups[gIdx];
+  const toggleGroup = (gIdx: number) =>
+    setCollapsedGroups((prev) => ({ ...prev, [gIdx]: !prev[gIdx] }));
 
   return (
     <aside
@@ -163,53 +172,69 @@ const Sidebar: React.FC<SidebarProps> = ({ open, onToggle }) => {
 
       {/* ═══ Navigation ═══ */}
       <nav className="flex-1 py-3 px-2 space-y-1 overflow-y-auto">
-        {filteredNav.map((group, gIdx) => (
-          <div key={gIdx} className={gIdx > 0 ? 'pt-3' : ''}>
-            {/* Group Title */}
-            {group.title && open && (
-              <div className="px-3 pb-2 text-[10px] font-bold uppercase tracking-widest text-slate-500">
-                {group.title}
-              </div>
-            )}
-            {group.title && !open && gIdx > 0 && (
-              <div className="flex justify-center py-2">
-                <div className="w-6 border-t border-slate-700/50" />
-              </div>
-            )}
+        {visibleNav.map(({ group, items }, gIdx) => {
+          const expanded = isGroupExpanded(gIdx);
+          // Collapsed mode always shows icon links; expanded mode respects the
+          // group collapse toggle.
+          const showItems = !open || expanded;
+          return (
+            <div key={gIdx} className={gIdx > 0 ? 'pt-3' : ''}>
+              {/* Group Title (clickable to expand/collapse the parent) */}
+              {group.title && open && (
+                <button
+                  onClick={() => toggleGroup(gIdx)}
+                  className="w-full flex items-center justify-between gap-2 px-3 pb-2 text-[10px] font-bold uppercase tracking-widest text-slate-500 hover:text-slate-300 transition-colors"
+                >
+                  <span className="truncate">{group.title}</span>
+                  {expanded ? (
+                    <ChevronUp size={12} className="shrink-0" />
+                  ) : (
+                    <ChevronDown size={12} className="shrink-0" />
+                  )}
+                </button>
+              )}
+              {group.title && !open && gIdx > 0 && (
+                <div className="flex justify-center py-2">
+                  <div className="w-6 border-t border-slate-700/50" />
+                </div>
+              )}
 
-            {/* Items */}
-            <div className="space-y-0.5">
-              {group.items.map((item) => {
-                if (item.type !== 'item') return null;
-                const Icon = item.icon;
-                return (
-                  <NavLink
-                    key={item.to}
-                    to={item.to}
-                    end={item.end}
-                    className={({ isActive }) =>
-                      `flex items-center gap-3 rounded-xl text-sm font-medium transition-all duration-150 ${
-                        open ? 'px-3 py-2.5' : 'px-0 py-2.5 justify-center'
-                      } ${
-                        isActive
-                          ? 'bg-[hsl(238,84%,59%)] text-white shadow-lg shadow-[hsl(238,84%,59%/0.25)] font-semibold'
-                          : 'text-slate-400 hover:text-white hover:bg-[hsl(217.2,32.6%,17.5%)]'
-                      }`
-                    }
-                    title={!open ? item.label : undefined}
-                  >
-                    <Icon
-                      size={20}
-                      className="shrink-0"
-                      strokeWidth={2}
-                    />
-                    {open && <span className="truncate">{item.label}</span>}
-                  </NavLink>
-                );
-              })}
+              {/* Items */}
+              {showItems && (
+                <div className="space-y-0.5">
+                  {items.map((item) => {
+                    if (item.type !== 'item') return null;
+                    const Icon = item.icon;
+                    return (
+                      <NavLink
+                        key={item.to}
+                        to={item.to}
+                        end={item.end}
+                        className={({ isActive }) =>
+                          `flex items-center gap-3 rounded-xl text-sm font-medium transition-all duration-150 ${
+                            open ? 'px-3 py-2.5' : 'px-0 py-2.5 justify-center'
+                          } ${
+                            isActive
+                              ? 'bg-[hsl(238,84%,59%)] text-white shadow-lg shadow-[hsl(238,84%,59%/0.25)] font-semibold'
+                              : 'text-slate-400 hover:text-white hover:bg-[hsl(217.2,32.6%,17.5%)]'
+                          }`
+                        }
+                        title={!open ? item.label : undefined}
+                      >
+                        <Icon
+                          size={20}
+                          className="shrink-0"
+                          strokeWidth={2}
+                        />
+                        {open && <span className="truncate">{item.label}</span>}
+                      </NavLink>
+                    );
+                  })}
+                </div>
+              )}
             </div>
-          </div>
-        ))}
+          );
+        })}
       </nav>
 
       {/* ═══ User Info ═══ */}

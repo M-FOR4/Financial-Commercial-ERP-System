@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../../services/api';
 import { useToast } from '../../components/Toast';
+import { getApiErrorMessage } from '../../utils/apiErrors';
 import { ChevronDown, ChevronUp, Shield } from 'lucide-react';
 
 interface User {
@@ -22,116 +23,168 @@ interface PermissionCategory {
   permissions: { key: string; label: string }[];
 }
 
+// Permission keys use the same canonical "{Module}.{Category}.{Action}" names the
+// backend seeds and enforces (DataSeeder / [HasPermission]) and the frontend route
+// guards check — so a checked box here is exactly what gates navigation and APIs.
 const permissionCategories: PermissionCategory[] = [
   {
     nameAr: 'المبيعات',
     permissions: [
-      { key: 'View Sales Invoice', label: 'عرض فاتورة بيع' },
-      { key: 'Add Sales Invoice', label: 'إضافة فاتورة بيع' },
-      { key: 'Edit Sales Invoice', label: 'تعديل فاتورة بيع' },
-      { key: 'Delete Sales Invoice', label: 'حذف فاتورة بيع' },
-      { key: 'Cancel Sales Invoice', label: 'إلغاء فاتورة بيع' },
-      { key: 'Approve Sales Invoice', label: 'اعتماد فاتورة بيع' },
-      { key: 'Print Sales Invoice', label: 'طباعة فاتورة بيع' },
-      { key: 'View Sales Invoice Cost', label: 'عرض تكلفة فاتورة البيع' },
-      { key: 'View Sales Invoice Profit', label: 'عرض أرباح فاتورة البيع' },
-      { key: 'View Sales Return', label: 'عرض مرتجع البيع' },
-      { key: 'Add Sales Return', label: 'إضافة مرتجع البيع' },
-      { key: 'Cancel Sales Return', label: 'إلغاء مرتجع البيع' },
+      { key: 'Sales.Invoice.View', label: 'عرض فاتورة بيع' },
+      { key: 'Sales.Invoice.Add', label: 'إضافة فاتورة بيع' },
+      { key: 'Sales.Invoice.Edit', label: 'تعديل فاتورة بيع' },
+      { key: 'Sales.Invoice.Delete', label: 'حذف فاتورة بيع' },
+      { key: 'Sales.Invoice.Cancel', label: 'إلغاء فاتورة بيع' },
+      { key: 'Sales.Invoice.Approve', label: 'اعتماد فاتورة بيع' },
+      { key: 'Sales.Invoice.Print', label: 'طباعة فاتورة بيع' },
+      { key: 'Sales.Invoice.ViewCost', label: 'عرض تكلفة فاتورة البيع' },
+      { key: 'Sales.Invoice.ViewProfit', label: 'عرض أرباح فاتورة البيع' },
+      { key: 'Sales.Return.View', label: 'عرض مرتجع البيع' },
+      { key: 'Sales.Return.Add', label: 'إضافة مرتجع البيع' },
+      { key: 'Sales.Return.Cancel', label: 'إلغاء مرتجع البيع' },
     ],
   },
   {
     nameAr: 'المشتريات',
     permissions: [
-      { key: 'View Purchase Invoice', label: 'عرض فاتورة شراء' },
-      { key: 'Add Purchase Invoice', label: 'إضافة فاتورة شراء' },
-      { key: 'Edit Purchase Invoice', label: 'تعديل فاتورة شراء' },
-      { key: 'Delete Purchase Invoice', label: 'حذف فاتورة شراء' },
-      { key: 'Cancel Purchase Invoice', label: 'إلغاء فاتورة شراء' },
-      { key: 'Approve Purchase Invoice', label: 'اعتماد فاتورة شراء' },
-      { key: 'View Purchase Return', label: 'عرض مرتجع الشراء' },
-      { key: 'Add Purchase Return', label: 'إضافة مرتجع الشراء' },
+      { key: 'Purchase.Invoice.View', label: 'عرض فاتورة شراء' },
+      { key: 'Purchase.Invoice.Add', label: 'إضافة فاتورة شراء' },
+      { key: 'Purchase.Invoice.Edit', label: 'تعديل فاتورة شراء' },
+      { key: 'Purchase.Invoice.Delete', label: 'حذف فاتورة شراء' },
+      { key: 'Purchase.Invoice.Cancel', label: 'إلغاء فاتورة شراء' },
+      { key: 'Purchase.Invoice.Approve', label: 'اعتماد فاتورة شراء' },
+      { key: 'Purchase.Return.View', label: 'عرض مرتجع الشراء' },
+      { key: 'Purchase.Return.Add', label: 'إضافة مرتجع الشراء' },
     ],
   },
   {
     nameAr: 'المخزون',
     permissions: [
-      { key: 'View Item', label: 'عرض صنف' },
-      { key: 'Add Item', label: 'إضافة صنف' },
-      { key: 'Edit Item', label: 'تعديل صنف' },
-      { key: 'Delete Item', label: 'حذف صنف' },
-      { key: 'View Item Cost', label: 'عرض تكلفة الصنف' },
-      { key: 'View Inventory Movement', label: 'عرض حركات المخزون' },
+      { key: 'Inventory.Item.View', label: 'عرض صنف' },
+      { key: 'Inventory.Item.Add', label: 'إضافة صنف' },
+      { key: 'Inventory.Item.Edit', label: 'تعديل صنف' },
+      { key: 'Inventory.Item.Delete', label: 'حذف صنف' },
+      { key: 'Inventory.Item.ViewCost', label: 'عرض تكلفة الصنف' },
+      { key: 'Inventory.Movement.View', label: 'عرض حركات المخزون' },
     ],
   },
   {
     nameAr: 'العملاء والموردون',
     permissions: [
-      { key: 'View Customer', label: 'عرض عميل' },
-      { key: 'Add Customer', label: 'إضافة عميل' },
-      { key: 'Edit Customer', label: 'تعديل عميل' },
-      { key: 'Delete Customer', label: 'حذف عميل' },
-      { key: 'View Supplier', label: 'عرض مورد' },
-      { key: 'Add Supplier', label: 'إضافة مورد' },
-      { key: 'Edit Supplier', label: 'تعديل مورد' },
-      { key: 'Delete Supplier', label: 'حذف مورد' },
+      { key: 'Customer.Customer.View', label: 'عرض عميل' },
+      { key: 'Customer.Customer.Add', label: 'إضافة عميل' },
+      { key: 'Customer.Customer.Edit', label: 'تعديل عميل' },
+      { key: 'Customer.Customer.Delete', label: 'حذف عميل' },
+      { key: 'Supplier.Supplier.View', label: 'عرض مورد' },
+      { key: 'Supplier.Supplier.Add', label: 'إضافة مورد' },
+      { key: 'Supplier.Supplier.Edit', label: 'تعديل مورد' },
+      { key: 'Supplier.Supplier.Delete', label: 'حذف مورد' },
     ],
   },
   {
     nameAr: 'المحاسبة',
     permissions: [
-      { key: 'View Account', label: 'عرض حساب' },
-      { key: 'Add Account', label: 'إضافة حساب' },
-      { key: 'Edit Account', label: 'تعديل حساب' },
-      { key: 'View Journal Entry', label: 'عرض قيد يومي' },
-      { key: 'Add Journal Entry', label: 'إضافة قيد يومي' },
-      { key: 'Approve Journal Entry', label: 'اعتماد قيد يومي' },
-      { key: 'View Trial Balance', label: 'عرض ميزان المراجعة' },
-      { key: 'View Account Statement', label: 'عرض كشف حساب' },
+      { key: 'Accounting.Account.View', label: 'عرض حساب' },
+      { key: 'Accounting.Account.Add', label: 'إضافة حساب' },
+      { key: 'Accounting.Account.Edit', label: 'تعديل حساب' },
+      { key: 'Accounting.JournalEntry.View', label: 'عرض قيد يومي' },
+      { key: 'Accounting.JournalEntry.Add', label: 'إضافة قيد يومي' },
+      { key: 'Accounting.JournalEntry.Approve', label: 'اعتماد قيد يومي' },
+      { key: 'Accounting.TrialBalance.View', label: 'عرض ميزان المراجعة' },
+      { key: 'Accounting.GeneralLedger.ViewAccountStatement', label: 'عرض كشف حساب' },
     ],
   },
   {
     nameAr: 'الخزائن والبنوك',
     permissions: [
-      { key: 'View Receipt', label: 'عرض سند قبض' },
-      { key: 'Add Receipt', label: 'إضافة سند قبض' },
-      { key: 'View Payment', label: 'عرض سند صرف' },
-      { key: 'Add Payment', label: 'إضافة سند صرف' },
-      { key: 'View Transfer', label: 'عرض تحويل' },
-      { key: 'Add Transfer', label: 'إضافة تحويل' },
+      { key: 'Cash.Receipt.View', label: 'عرض سند قبض' },
+      { key: 'Cash.Receipt.Add', label: 'إضافة سند قبض' },
+      { key: 'Cash.Payment.View', label: 'عرض سند صرف' },
+      { key: 'Cash.Payment.Add', label: 'إضافة سند صرف' },
+      { key: 'Cash.Transfer.View', label: 'عرض تحويل' },
+      { key: 'Cash.Transfer.Add', label: 'إضافة تحويل' },
     ],
   },
   {
     nameAr: 'الأصول الثابتة',
     permissions: [
-      { key: 'View Fixed Asset', label: 'عرض أصل ثابت' },
-      { key: 'Add Fixed Asset', label: 'إضافة أصل ثابت' },
-      { key: 'Calculate Depreciation', label: 'حساب الإهلاك' },
+      { key: 'FixedAsset.FixedAsset.View', label: 'عرض أصل ثابت' },
+      { key: 'FixedAsset.FixedAsset.Add', label: 'إضافة أصل ثابت' },
+      { key: 'FixedAsset.FixedAsset.CalculateDepreciation', label: 'حساب الإهلاك' },
     ],
   },
   {
     nameAr: 'التقارير',
     permissions: [
-      { key: 'View Sales Reports', label: 'تقارير المبيعات' },
-      { key: 'View Purchase Reports', label: 'تقارير المشتريات' },
-      { key: 'View Inventory Reports', label: 'التقارير المالية' },
-      { key: 'View Profit Reports', label: 'تقارير الأرباح' },
-      { key: 'Export Reports', label: 'تصدير التقارير' },
+      { key: 'Reports.Reports.ViewSalesReports', label: 'تقارير المبيعات' },
+      { key: 'Reports.Reports.ViewPurchaseReports', label: 'تقارير المشتريات' },
+      { key: 'Reports.Reports.ViewInventoryReports', label: 'تقارير المخزون' },
+      { key: 'Reports.Reports.ViewProfitReports', label: 'تقارير الأرباح' },
+      { key: 'Reports.Reports.ExportReports', label: 'تصدير التقارير' },
     ],
   },
   {
     nameAr: 'إدارة النظام',
     permissions: [
-      { key: 'View User', label: 'عرض المستخدمين' },
-      { key: 'Add User', label: 'إضافة مستخدم' },
-      { key: 'Edit User', label: 'تعديل مستخدم' },
-      { key: 'Delete User', label: 'حذف مستخدم' },
-      { key: 'View Audit Logs', label: 'عرض سجل الحركات' },
-      { key: 'View Permission Matrix', label: 'عرض مصفوفة الصلاحيات' },
-      { key: 'Modify Role Permissions', label: 'تعديل صلاحيات الدور' },
+      { key: 'Admin.User.View', label: 'عرض المستخدمين' },
+      { key: 'Admin.User.Add', label: 'إضافة مستخدم' },
+      { key: 'Admin.User.Edit', label: 'تعديل مستخدم' },
+      { key: 'Admin.User.Delete', label: 'حذف مستخدم' },
+      { key: 'Reports.Reports.ViewAccountingReports', label: 'عرض سجل الحركات' },
+      { key: 'Admin.Permission.ViewMatrix', label: 'عرض مصفوفة الصلاحيات' },
+      { key: 'Admin.Permission.ModifyRolePermissions', label: 'تعديل صلاحيات الدور' },
     ],
   },
 ];
+
+// ═══════════════════════════════════════
+//  ROLE PRESETS (UI ONLY)
+// ═══════════════════════════════════════
+// Selecting a role pre-checks its preset below; the admin can then toggle any box
+// before saving. The SAVED permission list — not the role string — is what the
+// backend and frontend enforce. Mirrors RolePresets in the backend.
+const allPermissionKeys = permissionCategories.flatMap((c) => c.permissions.map((p) => p.key));
+
+const rolePresets: Record<string, string[]> = {
+  Admin: allPermissionKeys,
+  Accountant: [
+    'Accounting.Account.View', 'Accounting.Account.Add', 'Accounting.Account.Edit',
+    'Accounting.JournalEntry.View', 'Accounting.JournalEntry.Add', 'Accounting.JournalEntry.Approve',
+    'Accounting.GeneralLedger.ViewAccountStatement', 'Accounting.TrialBalance.View',
+    'Cash.CashAccount.View', 'Cash.Receipt.View', 'Cash.Receipt.Add', 'Cash.Payment.View', 'Cash.Payment.Add',
+    'Cash.Transfer.View', 'Cash.Transfer.Add',
+    'FixedAsset.FixedAsset.View',
+    'Reports.Reports.ViewAccountingReports', 'Reports.Reports.ViewSalesReports', 'Reports.Reports.ExportReports',
+  ],
+  SalesManager: [
+    'Sales.Invoice.View', 'Sales.Invoice.Add', 'Sales.Invoice.Edit', 'Sales.Invoice.Delete',
+    'Sales.Invoice.Cancel', 'Sales.Invoice.Approve', 'Sales.Invoice.Print', 'Sales.Invoice.ViewProfit',
+    'Sales.Return.View', 'Sales.Return.Add', 'Sales.Return.Cancel', 'Sales.Return.Approve',
+    'Customer.Customer.View', 'Customer.Customer.Add', 'Customer.Customer.Edit',
+    'Reports.Reports.ViewSalesReports', 'Reports.Reports.ExportReports',
+  ],
+  InventoryManager: [
+    'Purchase.Invoice.View',
+    'Inventory.Item.View', 'Inventory.Item.Add', 'Inventory.Item.Edit', 'Inventory.Item.ViewCost',
+    'Inventory.Category.View', 'Inventory.Category.Add',
+    'Inventory.Warehouse.View', 'Inventory.Warehouse.Add',
+    'Inventory.Movement.View',
+    'Inventory.WarehouseReceipt.View', 'Inventory.WarehouseReceipt.Add',
+    'Inventory.WarehouseIssue.View', 'Inventory.WarehouseIssue.Add',
+    'Inventory.WarehouseTransfer.View', 'Inventory.WarehouseTransfer.Add',
+    'Inventory.StockCount.View', 'Inventory.StockCount.Add',
+    'Inventory.StockAdjustment.View', 'Inventory.StockAdjustment.Add',
+    'Reports.Reports.ViewInventoryReports', 'Reports.Reports.ViewPurchaseReports',
+  ],
+  Cashier: [
+    'Sales.Invoice.View',
+    'Customer.Customer.View',
+    'Cash.Receipt.View', 'Cash.Receipt.Add', 'Cash.Receipt.Print',
+    'Cash.Payment.View', 'Cash.Payment.Add', 'Cash.Payment.Print',
+    'Cash.CashAccount.View', 'Cash.CashAccount.ViewBalance',
+    'Cash.Transfer.View', 'Cash.Transfer.Add',
+  ],
+};
 
 const roles = ['Admin', 'Accountant', 'SalesManager', 'InventoryManager', 'Cashier'];
 const roleColors: Record<string, string> = {
@@ -265,8 +318,25 @@ export const Users: React.FC = () => {
   };
 
   const handleCreate = async () => {
-    if (!form.fullName || !form.username || !form.password) {
+    if (!form.fullName.trim() || !form.username.trim() || !form.password) {
       addToast('error', 'الاسم الكامل واسم المستخدم وكلمة المرور مطلوبة.');
+      return;
+    }
+    // Mirror the RegisterRequest validation attributes so the server never has to
+    // reject a payload the UI already knows is invalid (which would surface as an
+    // opaque 400 ValidationProblemDetails). MaxLength counts the raw value exactly
+    // as the server does; [Required] only rejects null/empty, so presence is
+    // checked on the trimmed value.
+    if (form.fullName.length > 200) {
+      addToast('error', 'الاسم الكامل يجب ألا يتجاوز 200 حرف.');
+      return;
+    }
+    if (form.username.length > 100) {
+      addToast('error', 'اسم المستخدم يجب ألا يتجاوز 100 حرف.');
+      return;
+    }
+    if (form.password.length < 6) {
+      addToast('error', 'كلمة المرور يجب ألا تقل عن 6 أحرف.');
       return;
     }
     try {
@@ -275,8 +345,8 @@ export const Users: React.FC = () => {
       setForm({ fullName: '', username: '', password: '', role: 'Accountant', permissions: [] });
       addToast('success', 'تم إنشاء المستخدم بنجاح.');
       await loadUsers();
-    } catch (err: any) {
-      addToast('error', err.response?.data?.error || 'فشل في إنشاء المستخدم.');
+    } catch (err) {
+      addToast('error', getApiErrorMessage(err, 'فشل في إنشاء المستخدم.'));
     }
   };
 
@@ -287,8 +357,8 @@ export const Users: React.FC = () => {
       setShowEditModal(null);
       addToast('success', 'تم تحديث المستخدم بنجاح.');
       await loadUsers();
-    } catch (err: any) {
-      addToast('error', err.response?.data?.error || 'فشل في تحديث المستخدم.');
+    } catch (err) {
+      addToast('error', getApiErrorMessage(err, 'فشل في تحديث المستخدم.'));
     }
   };
 
@@ -297,20 +367,26 @@ export const Users: React.FC = () => {
       await api.post(`/api/users/${id}/toggle-active`);
       addToast('success', 'تم تغيير حالة المستخدم.');
       await loadUsers();
-    } catch (err: any) {
-      addToast('error', err.response?.data?.error || 'فشل.');
+    } catch (err) {
+      addToast('error', getApiErrorMessage(err, 'فشل.'));
     }
   };
 
   const handleResetPassword = async () => {
     if (!showResetModal || !newPassword) return;
+    // ResetPasswordRequest also enforces MinLength(6); reject short passwords
+    // before the server turns them into an opaque validation error.
+    if (newPassword.length < 6) {
+      addToast('error', 'كلمة المرور الجديدة يجب ألا تقل عن 6 أحرف.');
+      return;
+    }
     try {
       await api.post(`/api/users/${showResetModal.id}/reset-password`, { newPassword });
       setShowResetModal(null);
       setNewPassword('');
       addToast('success', 'تم إعادة تعيين كلمة المرور بنجاح.');
-    } catch (err: any) {
-      addToast('error', err.response?.data?.error || 'فشل.');
+    } catch (err) {
+      addToast('error', getApiErrorMessage(err, 'فشل في إعادة تعيين كلمة المرور.'));
     }
   };
 
@@ -394,24 +470,27 @@ export const Users: React.FC = () => {
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-semibold text-muted-foreground mb-1">الاسم الكامل *</label>
-                  <input type="text" value={form.fullName} onChange={e => setForm({ ...form, fullName: e.target.value })}
+                  <input type="text" value={form.fullName} onChange={e => setForm({ ...form, fullName: e.target.value })} maxLength={200}
                     className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm text-foreground focus:ring-2 focus:ring-ring focus:outline-none" />
                 </div>
                 <div>
                   <label className="block text-xs font-semibold text-muted-foreground mb-1">اسم المستخدم *</label>
-                  <input type="text" value={form.username} onChange={e => setForm({ ...form, username: e.target.value })}
+                  <input type="text" value={form.username} onChange={e => setForm({ ...form, username: e.target.value })} maxLength={100}
                     className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm text-foreground focus:ring-2 focus:ring-ring focus:outline-none" />
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-semibold text-muted-foreground mb-1">كلمة المرور *</label>
-                  <input type="password" value={form.password} onChange={e => setForm({ ...form, password: e.target.value })}
+                  <input type="password" value={form.password} onChange={e => setForm({ ...form, password: e.target.value })} minLength={6}
                     className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm text-foreground focus:ring-2 focus:ring-ring focus:outline-none" />
                 </div>
                 <div>
                   <label className="block text-xs font-semibold text-muted-foreground mb-1">الدور</label>
-                  <select value={form.role} onChange={e => setForm({ ...form, role: e.target.value })}
+                  <select
+                    value={form.role}
+                    onChange={e => setForm({ ...form, role: e.target.value, permissions: rolePresets[e.target.value] ?? form.permissions })}
+                    title="اختيار الدور يحدد الصلاحيات تلقائياً ويمكنك تعديلها يدوياً"
                     className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm text-foreground focus:ring-2 focus:ring-ring focus:outline-none">
                     {roles.map(r => <option key={r} value={r}>{r}</option>)}
                   </select>
@@ -445,7 +524,10 @@ export const Users: React.FC = () => {
                     <input type="text" value={editForm.role} disabled
                       className="w-full px-3 py-2 bg-muted border border-border rounded-lg text-sm text-muted-foreground opacity-60 cursor-not-allowed" />
                   ) : (
-                    <select value={editForm.role} onChange={e => setEditForm({ ...editForm, role: e.target.value })}
+                    <select
+                      value={editForm.role}
+                      onChange={e => setEditForm({ ...editForm, role: e.target.value, permissions: rolePresets[e.target.value] ?? editForm.permissions })}
+                      title="اختيار الدور يحدد الصلاحيات تلقائياً ويمكنك تعديلها يدوياً"
                       className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm text-foreground focus:ring-2 focus:ring-ring focus:outline-none">
                       {roles.map(r => <option key={r} value={r}>{r}</option>)}
                     </select>
@@ -482,7 +564,7 @@ export const Users: React.FC = () => {
             <p className="text-sm text-muted-foreground mb-4">للمستخدم: <span className="font-mono text-foreground">{showResetModal.username}</span></p>
             <div>
               <label className="block text-xs font-semibold text-muted-foreground mb-1">كلمة المرور الجديدة</label>
-              <input type="password" value={newPassword} onChange={e => setNewPassword(e.target.value)}
+              <input type="password" value={newPassword} onChange={e => setNewPassword(e.target.value)} minLength={6}
                 className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm text-foreground focus:ring-2 focus:ring-ring focus:outline-none" />
             </div>
             <div className="flex justify-end gap-3 mt-6">

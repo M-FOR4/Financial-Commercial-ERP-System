@@ -6,6 +6,8 @@ import {
 } from '../../services/cashBankApi';
 import { api } from '../../services/api';
 import type { AccountDto } from '../../services/accountingApi';
+import { useToast } from '../../components/Toast';
+import { getApiErrorMessage } from '../../utils/apiErrors';
 import { formatCurrency } from '../../utils/format';
 
 const statusConfig: Record<DocumentStatus, { bg: string; text: string; border: string; label: string }> = {
@@ -15,6 +17,7 @@ const statusConfig: Record<DocumentStatus, { bg: string; text: string; border: s
 };
 
 export const CashVouchers: React.FC = () => {
+  const { addToast } = useToast();
   const [vouchers, setVouchers] = useState<CashVoucher[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
@@ -58,19 +61,26 @@ export const CashVouchers: React.FC = () => {
       await cashVoucherApi.create(form);
       setShowForm(false);
       setForm({ voucherType: 'Receipt', date: new Date().toISOString().split('T')[0], treasuryId: '', partyType: 'GeneralAccount', partyId: null, targetAccountId: '', amount: 0, description: '' });
+      addToast('success', 'تم إنشاء السند بنجاح.');
       await loadData();
-    } catch (err: any) { setError(err.response?.data?.error || 'فشل في إنشاء السند.'); }
+    } catch (err) { setError(getApiErrorMessage(err, 'فشل في إنشاء السند.')); }
   };
 
   const handlePost = async (id: string) => {
-    try { await cashVoucherApi.post(id); await loadData(); }
-    catch (err: any) { alert(err.response?.data?.error || 'فشل في ترحيل السند.'); }
+    try {
+      await cashVoucherApi.post(id);
+      addToast('success', 'تم ترحيل السند بنجاح.');
+      await loadData();
+    } catch (err) { addToast('error', getApiErrorMessage(err, 'فشل في ترحيل السند.')); }
   };
 
   const handleCancel = async (id: string) => {
-    if (!confirm('هل أنت متأكد من إلغاء هذا السند؟')) return;
-    try { await cashVoucherApi.cancel(id); await loadData(); }
-    catch (err: any) { alert(err.response?.data?.error || 'فشل في إلغاء السند.'); }
+    if (!window.confirm('هل أنت متأكد من إلغاء هذا السند؟')) return;
+    try {
+      await cashVoucherApi.cancel(id);
+      addToast('success', 'تم إلغاء السند بنجاح.');
+      await loadData();
+    } catch (err) { addToast('error', getApiErrorMessage(err, 'فشل في إلغاء السند.')); }
   };
 
   const filtered = vouchers.filter(v => {

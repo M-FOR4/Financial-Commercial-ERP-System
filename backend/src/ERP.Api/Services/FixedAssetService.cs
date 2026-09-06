@@ -164,6 +164,7 @@ public class FixedAssetService : IFixedAssetService
             var asset = new FixedAsset
             {
                 Id = Guid.NewGuid(),
+                CompanyId = category.CompanyId,
                 AssetCode = request.AssetCode,
                 Name = request.Name,
                 CategoryId = request.CategoryId,
@@ -177,12 +178,16 @@ public class FixedAssetService : IFixedAssetService
                 CreatedAt = DateTime.UtcNow
             };
 
+            var fiscalYear = await GetActiveFiscalYearAsync(category.CompanyId, asset.PurchaseDate);
+
             // Post registration Journal Entry: Debit Fixed Asset Account, Credit Cash (default to 1110)
             // Resolve cash account from AccountingDefaults (ACCOUNTING_RULES §30)
             var cashAccount = await AccountResolutionHelper.ResolveAsync(_db, category.CompanyId, null, "1110", "Cash/Bank");
             var je = new JournalEntry
             {
                 Id = Guid.NewGuid(),
+                CompanyId = category.CompanyId,
+                FiscalYearId = fiscalYear.Id,
                 EntryNumber = await GenerateJournalEntryNumberAsync(),
                 EntryDate = request.PurchaseDate.ToUtc(),
                 Description = $"Register Fixed Asset: {request.Name} ({request.AssetCode})",
@@ -292,10 +297,22 @@ public class FixedAssetService : IFixedAssetService
                         + request.PeriodEndDate.Month - request.PeriodStartDate.Month;
             if (months <= 0) months = 1;
 
+            var companyId = activeAssets.FirstOrDefault()?.CompanyId != Guid.Empty && activeAssets.FirstOrDefault()?.CompanyId != null
+                ? activeAssets.First().CompanyId
+                : activeAssets.FirstOrDefault()?.Category.CompanyId ?? Guid.Empty;
+
+            FiscalYear? fiscalYear = null;
+            if (activeAssets.Count > 0)
+            {
+                fiscalYear = await GetActiveFiscalYearAsync(companyId, request.PeriodEndDate);
+            }
+
             // Create one consolidated Journal Entry for all depreciation
             var je = new JournalEntry
             {
                 Id = Guid.NewGuid(),
+                CompanyId = companyId,
+                FiscalYearId = fiscalYear?.Id ?? Guid.Empty,
                 EntryNumber = await GenerateJournalEntryNumberAsync(),
                 EntryDate = request.PeriodEndDate,
                 Description = $"Depreciation Period: {request.PeriodStartDate:yyyy-MM-dd} to {request.PeriodEndDate:yyyy-MM-dd}",
@@ -488,10 +505,15 @@ public class FixedAssetService : IFixedAssetService
             // Calculate gain/loss
             var gainOrLoss = request.DisposalValue - asset.CurrentBookValue;
 
+            var companyId = asset.CompanyId != Guid.Empty ? asset.CompanyId : asset.Category.CompanyId;
+            var fiscalYear = await GetActiveFiscalYearAsync(companyId, DateTime.UtcNow);
+
             // Post disposal Journal Entry
             var je = new JournalEntry
             {
                 Id = Guid.NewGuid(),
+                CompanyId = companyId,
+                FiscalYearId = fiscalYear.Id,
                 EntryNumber = await GenerateJournalEntryNumberAsync(),
                 EntryDate = DateTime.UtcNow,
                 Description = $"Dispose Asset: {asset.Name} ({asset.AssetCode}) — {request.Description}",
@@ -606,6 +628,17 @@ public class FixedAssetService : IFixedAssetService
     // ═══════════════════════════════════
     //  HELPERS
     // ═══════════════════════════════════
+
+    private async Task<FiscalYear> GetActiveFiscalYearAsync(Guid companyId, DateTime transactionDate)
+    {
+        var fiscalYear = await _db.FiscalYears
+            .FirstOrDefaultAsync(fy => fy.CompanyId == companyId && fy.IsActive
+                                       && fy.StartDate <= transactionDate && transactionDate <= fy.EndDate)
+            ?? await _db.FiscalYears.FirstOrDefaultAsync(fy => fy.CompanyId == companyId && fy.IsActive);
+
+        return fiscalYear
+            ?? throw new InvalidOperationException($"No active fiscal year found for company {companyId} and date {transactionDate:yyyy-MM-dd}.");
+    }
 
     private async Task<string> GenerateJournalEntryNumberAsync()
     {

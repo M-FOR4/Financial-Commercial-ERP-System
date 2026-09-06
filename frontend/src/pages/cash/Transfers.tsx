@@ -1,6 +1,9 @@
-import React, { useState, useEffect } from 'react';import { treasuryApi, transferVoucherApi,
+import React, { useState, useEffect } from 'react';
+import { treasuryApi, transferVoucherApi,
   type Treasury, type TransferVoucher, type TransferVoucherRequest, type DocumentStatus,
 } from '../../services/cashBankApi';
+import { useToast } from '../../components/Toast';
+import { getApiErrorMessage } from '../../utils/apiErrors';
 import { formatCurrency } from '../../utils/format';
 
 const statusConfig: Record<DocumentStatus, { bg: string; text: string; border: string; label: string }> = {
@@ -10,6 +13,7 @@ const statusConfig: Record<DocumentStatus, { bg: string; text: string; border: s
 };
 
 export const Transfers: React.FC = () => {
+  const { addToast } = useToast();
   const [transfers, setTransfers] = useState<TransferVoucher[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
@@ -41,19 +45,26 @@ export const Transfers: React.FC = () => {
       await transferVoucherApi.create(form);
       setShowForm(false);
       setForm({ date: new Date().toISOString().split('T')[0], fromTreasuryId: '', toTreasuryId: '', amount: 0, reference: '' });
+      addToast('success', 'تم إنشاء التحويل بنجاح.');
       await loadData();
-    } catch (err: any) { setError(err.response?.data?.error || 'فشل في إنشاء التحويل.'); }
+    } catch (err) { setError(getApiErrorMessage(err, 'فشل في إنشاء التحويل.')); }
   };
 
   const handlePost = async (id: string) => {
-    try { await transferVoucherApi.post(id); await loadData(); }
-    catch (err: any) { alert(err.response?.data?.error || 'فشل في ترحيل التحويل.'); }
+    try {
+      await transferVoucherApi.post(id);
+      addToast('success', 'تم ترحيل التحويل بنجاح.');
+      await loadData();
+    } catch (err) { addToast('error', getApiErrorMessage(err, 'فشل في ترحيل التحويل.')); }
   };
 
   const handleCancel = async (id: string) => {
-    if (!confirm('هل تريد إلغاء هذا التحويل؟')) return;
-    try { await transferVoucherApi.cancel(id); await loadData(); }
-    catch (err: any) { alert(err.response?.data?.error || 'فشل في إلغاء التحويل.'); }
+    if (!window.confirm('هل تريد إلغاء هذا التحويل؟')) return;
+    try {
+      await transferVoucherApi.cancel(id);
+      addToast('success', 'تم إلغاء التحويل بنجاح.');
+      await loadData();
+    } catch (err) { addToast('error', getApiErrorMessage(err, 'فشل في إلغاء التحويل.')); }
   };
 
   const getTreasuryName = (id: string) => treasuries.find(t => t.id === id)?.name || 'غير معروف';

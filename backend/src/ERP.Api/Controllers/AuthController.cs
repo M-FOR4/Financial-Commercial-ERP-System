@@ -1,6 +1,7 @@
 using System.Security.Claims;
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
+using ERP.Api.Common.Authorization;
 using ERP.Api.Data;
 using ERP.Api.Domain.Entities;
 using ERP.Api.DTOs;
@@ -33,13 +34,19 @@ public class AuthController : ControllerBase
     }
 
     [HttpPost("register")]
-    [Authorize(Roles = "Admin")]
+    [HasPermission("Admin.User.Add")]
     public async Task<IActionResult> Register([FromBody] RegisterRequest request)
     {
         if (await _context.Users.AnyAsync(u => u.Username.ToLower() == request.Username.ToLower()))
         {
             return Conflict(new { success = false, message = "A user with this username already exists." });
         }
+
+        // Roles are UI presets only; fall back to the role preset when no explicit
+        // permission list is provided. Stored permissions are the ground truth.
+        var permissions = request.Permissions is { Count: > 0 }
+            ? request.Permissions
+            : RolePresets.For(request.Role)?.ToList() ?? new List<string>();
 
         var user = new User
         {
@@ -49,7 +56,7 @@ public class AuthController : ControllerBase
             Role = request.Role ?? "Accountant",
             IsActive = true,
             CreatedAt = DateTime.UtcNow,
-            PermissionsJson = JsonSerializer.Serialize(request.Permissions ?? new List<string>())
+            PermissionsJson = JsonSerializer.Serialize(permissions)
         };
 
         _context.Users.Add(user);

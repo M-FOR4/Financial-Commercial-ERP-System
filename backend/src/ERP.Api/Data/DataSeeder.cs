@@ -1,3 +1,4 @@
+using System.Text.Json;
 using ERP.Api.Domain.Entities;
 using ERP.Api.Domain.Enums;
 using ERP.Api.Services;
@@ -124,6 +125,12 @@ public static class DataSeeder
         // ═══════════════════════════════════════════
         // 6. SUPER ADMIN USER
         // ═══════════════════════════════════════════
+        // Permissions are the ground truth for authorization (PERMISSIONS.md): the admin
+        // gets ALL permission names stored directly in PermissionsJson, so the role
+        // string is only a UI label/preset and never a source of authorization decisions.
+        var allPermissionNames = permissions.Select(p => p.Name).ToList();
+        var allPermissionsJson = JsonSerializer.Serialize(allPermissionNames);
+
         var adminUser = await db.Users.FirstOrDefaultAsync(u => u.Username == "admin");
         if (adminUser == null)
         {
@@ -137,7 +144,7 @@ public static class DataSeeder
                 IsActive = true,
                 CompanyId = company.Id,
                 BranchId = branch.Id,
-                PermissionsJson = "[]", // Admin gets permissions through Role, not direct
+                PermissionsJson = allPermissionsJson,
                 CreatedAt = DateTime.UtcNow
             };
             db.Users.Add(adminUser);
@@ -148,7 +155,7 @@ public static class DataSeeder
             adminUser.CompanyId = company.Id;
             adminUser.BranchId = branch.Id;
             adminUser.Role = "Admin";
-            adminUser.PermissionsJson = "[]";
+            adminUser.PermissionsJson = allPermissionsJson;
             adminUser.UpdatedAt = DateTime.UtcNow;
         }
 
