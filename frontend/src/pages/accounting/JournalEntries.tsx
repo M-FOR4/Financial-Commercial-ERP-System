@@ -9,6 +9,9 @@ import {
   type CreateJournalEntryRequest,
 } from '../../services/accountingApi';
 
+import { X } from 'lucide-react';
+import { formatBalance, formatDate } from '../../utils/format';
+
 // ── Helpers ──
 
 const statusConfig: Record<JournalEntryStatus, { bg: string; text: string; border: string; label: string }> = {
@@ -16,11 +19,6 @@ const statusConfig: Record<JournalEntryStatus, { bg: string; text: string; borde
   Posted: { bg: 'bg-emerald-500/15', text: 'text-emerald-400', border: 'border-emerald-500/30', label: 'مرحل' },
   Cancelled: { bg: 'bg-red-500/15', text: 'text-red-400', border: 'border-red-500/30', label: 'ملغي' },
 };
-
-const formatBalance = (n: number) =>
-  new Intl.NumberFormat('en-LY', { minimumFractionDigits: 4, maximumFractionDigits: 4 }).format(n);
-
-const formatDate = (s: string) => new Date(s).toLocaleDateString('en-GB');
 
 // ── New Journal Entry Form ──
 
@@ -121,10 +119,18 @@ const NewEntryForm: React.FC<NewEntryFormProps> = ({ isOpen, onClose, accounts }
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={onClose}>
-      <div className="bg-card border border-border rounded-2xl shadow-2xl w-full max-w-3xl mx-4 max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-        <div className="px-6 py-4 border-b border-border sticky top-0 bg-card z-10">
-          <h3 className="text-lg font-bold text-foreground">قيد يومي جديد</h3>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4" onClick={onClose}>
+      <div className="bg-card border border-border rounded-2xl shadow-2xl w-full max-w-3xl mx-4 max-h-[calc(100vh-4rem)] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+        <div className="px-6 py-4 border-b border-border sticky top-0 bg-card z-10 relative">
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="إغلاق"
+            className="absolute left-4 top-1/2 -translate-y-1/2 p-1.5 text-muted-foreground hover:text-foreground opacity-70 hover:opacity-100 transition-all"
+          >
+            <X size={20} />
+          </button>
+          <h3 className="text-lg font-bold text-foreground pl-12">قيد يومي جديد</h3>
         </div>
 
         <form onSubmit={handleSubmit} className="p-6 space-y-5">
@@ -202,7 +208,7 @@ const NewEntryForm: React.FC<NewEntryFormProps> = ({ isOpen, onClose, accounts }
                     value={line.debit}
                     onChange={(e) => updateLine(idx, 'debit', e.target.value)}
                     placeholder="0.0000"
-                    className="px-3 py-2 bg-input border-border rounded-lg text-foreground placeholder-muted-foreground text-sm font-mono text-right focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    className="px-3 py-2 bg-input border-border rounded-lg text-foreground placeholder-muted-foreground text-sm text-right focus:outline-none focus:ring-2 focus:ring-indigo-500"
                   />
                   <input
                     type="number"
@@ -211,7 +217,7 @@ const NewEntryForm: React.FC<NewEntryFormProps> = ({ isOpen, onClose, accounts }
                     value={line.credit}
                     onChange={(e) => updateLine(idx, 'credit', e.target.value)}
                     placeholder="0.0000"
-                    className="px-3 py-2 bg-input border-border rounded-lg text-foreground placeholder-muted-foreground text-sm font-mono text-right focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    className="px-3 py-2 bg-input border-border rounded-lg text-foreground placeholder-muted-foreground text-sm text-right focus:outline-none focus:ring-2 focus:ring-indigo-500"
                   />
                   <input
                     type="text"
@@ -233,7 +239,7 @@ const NewEntryForm: React.FC<NewEntryFormProps> = ({ isOpen, onClose, accounts }
             </div>
 
             {/* Totals */}
-            <div className="mt-3 grid grid-cols-[1fr_120px_120px_1fr_40px] gap-2 text-sm font-mono font-bold">
+            <div className="mt-3 grid grid-cols-[1fr_120px_120px_1fr_40px] gap-2 text-sm font-bold">
               <span className="text-muted-foreground px-1 py-2">الإجمالي</span>
               <span className="text-right px-3 py-2 text-emerald-400">{formatBalance(totalDebit)}</span>
               <span className="text-right px-3 py-2 text-sky-400">{formatBalance(totalCredit)}</span>
@@ -305,20 +311,25 @@ const EntryDetail: React.FC<EntryDetailProps> = ({ entry, onClose }) => {
   const sc = statusConfig[entry.status];
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={onClose}>
-      <div className="bg-card border border-border rounded-2xl shadow-2xl w-full max-w-2xl mx-4 max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4" onClick={onClose}>
+      <div className="bg-card border border-border rounded-2xl shadow-2xl w-full max-w-2xl mx-4 max-h-[calc(100vh-4rem)] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
         {/* Header */}
-        <div className="px-6 py-4 border-b border-border flex items-center justify-between sticky top-0 bg-card z-10">
+        <div className="px-6 py-4 border-b border-border flex items-center justify-between sticky top-0 bg-card z-10 relative pl-14">
           <div>
             <h3 className="text-lg font-bold text-foreground">{entry.entryNumber}</h3>
             <span className="text-xs text-muted-foreground">{formatDate(entry.entryDate)}</span>
           </div>
-          <div className="flex items-center gap-3">
-            <span className={`px-3 py-1 text-xs font-semibold rounded-full border ${sc.bg} ${sc.text} ${sc.border}`}>
-              {entry.statusName} ({sc.label})
-            </span>
-            <button onClick={onClose} className="text-muted-foreground hover:text-foreground transition-colors text-xl">&times;</button>
-          </div>
+          <span className={`px-3 py-1 text-xs font-semibold rounded-full border ${sc.bg} ${sc.text} ${sc.border}`}>
+            {entry.statusName} ({sc.label})
+          </span>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="إغلاق"
+            className="absolute left-4 top-1/2 -translate-y-1/2 p-1.5 text-muted-foreground hover:text-foreground opacity-70 hover:opacity-100 transition-all"
+          >
+            <X size={20} />
+          </button>
         </div>
 
         {/* Body */}
@@ -345,13 +356,13 @@ const EntryDetail: React.FC<EntryDetailProps> = ({ entry, onClose }) => {
                   {entry.lines.map((line) => (
                     <tr key={line.id} className="hover:bg-muted/30">
                       <td className="px-4 py-2.5">
-                        <span className="font-mono text-xs text-muted-foreground mr-2">{line.accountCode}</span>
+                        <span className="text-xs text-muted-foreground mr-2">{line.accountCode}</span>
                         <span className="text-foreground">{line.accountName}</span>
                       </td>
-                      <td className="px-4 py-2.5 text-right font-mono text-emerald-400">
+                      <td className="px-4 py-2.5 text-right text-emerald-400">
                         {line.debit > 0 ? formatBalance(line.debit) : '-'}
                       </td>
-                      <td className="px-4 py-2.5 text-right font-mono text-sky-400">
+                      <td className="px-4 py-2.5 text-right text-sky-400">
                         {line.credit > 0 ? formatBalance(line.credit) : '-'}
                       </td>
                       <td className="px-4 py-2.5 text-muted-foreground text-xs">{line.description || '-'}</td>
@@ -361,8 +372,8 @@ const EntryDetail: React.FC<EntryDetailProps> = ({ entry, onClose }) => {
                 <tfoot>
                   <tr className="bg-muted/40 font-bold text-sm">
                     <td className="px-4 py-2.5 text-muted-foreground">الإجمالي</td>
-                    <td className="px-4 py-2.5 text-right font-mono text-emerald-400">{formatBalance(entry.totalDebit)}</td>
-                    <td className="px-4 py-2.5 text-right font-mono text-sky-400">{formatBalance(entry.totalCredit)}</td>
+                    <td className="px-4 py-2.5 text-right text-emerald-400">{formatBalance(entry.totalDebit)}</td>
+                    <td className="px-4 py-2.5 text-right text-sky-400">{formatBalance(entry.totalCredit)}</td>
                     <td className="px-4 py-2.5" />
                   </tr>
                 </tfoot>
@@ -375,7 +386,7 @@ const EntryDetail: React.FC<EntryDetailProps> = ({ entry, onClose }) => {
             <div className="bg-muted/40 rounded-lg p-4 grid grid-cols-2 gap-4 text-xs">
               <div>
                 <span className="text-muted-foreground block">وقت الترحيل</span>
-                <span className="text-foreground font-mono">{new Date(entry.postedAt).toLocaleString()}</span>
+                <span className="text-foreground">{new Date(entry.postedAt).toLocaleString()}</span>
               </div>
               <div>
                 <span className="text-muted-foreground block">تم الترحيل بواسطة</span>
@@ -570,16 +581,16 @@ export const JournalEntries: React.FC = () => {
                         className="hover:bg-muted/30 cursor-pointer transition-colors"
                         onClick={() => setSelectedEntry(entry)}
                       >
-                        <td className="px-5 py-3 font-mono font-semibold text-indigo-400">{entry.entryNumber}</td>
-                        <td className="px-5 py-3 font-mono text-muted-foreground">{formatDate(entry.entryDate)}</td>
+                        <td className="px-5 py-3 font-semibold text-indigo-400">{entry.entryNumber}</td>
+                        <td className="px-5 py-3 text-muted-foreground">{formatDate(entry.entryDate)}</td>
                         <td className="px-5 py-3 text-foreground truncate max-w-xs">{entry.description}</td>
                         <td className="px-5 py-3 text-center">
                           <span className={`px-2.5 py-0.5 text-[10px] font-semibold rounded-full border ${sc.bg} ${sc.text} ${sc.border}`}>
                             {entry.statusName}
                           </span>
                         </td>
-                        <td className="px-5 py-3 text-right font-mono text-emerald-400">{formatBalance(entry.totalDebit)}</td>
-                        <td className="px-5 py-3 text-right font-mono text-sky-400">{formatBalance(entry.totalCredit)}</td>
+                        <td className="px-5 py-3 text-right text-emerald-400">{formatBalance(entry.totalDebit)}</td>
+                        <td className="px-5 py-3 text-right text-sky-400">{formatBalance(entry.totalCredit)}</td>
                         <td className="px-5 py-3 text-center text-muted-foreground">{entry.lines.length}</td>
                         <td className="px-5 py-3 text-center">
                           {entry.status === 'Draft' && (

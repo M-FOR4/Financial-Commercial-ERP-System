@@ -5,7 +5,7 @@ import { useAuthStore } from '../store/useAuthStore';
 import { reportsApi, type DashboardKpiResponse } from '../services/reportsApi';
 import { salesApi, type SalesInvoiceDto } from '../services/salesApi';
 import { purchasesApi, type PurchaseInvoiceDto } from '../services/purchasesApi';
-import { formatCurrency, formatDate } from '../utils/format';
+import { formatCurrency, formatDate, formatShortNumber, formatShortDate } from '../utils/format';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, PieChart, Pie, Cell,
 } from 'recharts';
@@ -14,6 +14,26 @@ import {
   TrendingUp, TrendingDown,  AlertCircle,
   ArrowUpRight, ArrowDownRight, Receipt, CreditCard,
 } from 'lucide-react';
+
+// ═══════════════════════════════════════
+//  SHARED CHART THEME (Recharts)
+// ═══════════════════════════════════════
+
+// Centralized RTL tooltip styling — pass as contentStyle={tooltipStyle} on every <Tooltip>
+const tooltipStyle = {
+  backgroundColor: 'rgba(15, 23, 42, 0.94)',
+  borderRadius: '12px',
+  border: '1px solid rgba(255,255,255,0.1)',
+  color: '#fff',
+  fontSize: '12px',
+  direction: 'rtl' as const,
+  boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.3)',
+};
+
+// Standard axis tick configs — dx/dy push tick labels OUTWARDS so they never
+// bleed into the chart grid, and margins reserve room for the shifted labels.
+const Y_AXIS_TICK = { fontSize: 10, dx: -22 };
+const X_AXIS_TICK = { fontSize: 10, dy: 8 };
 
 
 
@@ -31,12 +51,12 @@ interface KpiCardProps {
 }
 
 const KpiCard: React.FC<KpiCardProps> = ({ title, value, subtitle, icon, trend, color }) => (
-  <div className="bg-card border border-border text-card-foreground rounded-xl p-5 shadow-sm hover:shadow-md transition-shadow">
+    <div className="bg-card border border-border text-card-foreground rounded-xl p-5 shadow-sm hover:shadow-md transition-shadow">
     <div className="flex items-start justify-between mb-3">
       <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{title}</span>
       <div className={`p-2 rounded-lg ${color}`}>{icon}</div>
     </div>
-    <div className="text-2xl font-bold font-mono text-foreground">{value}</div>
+    <div className="text-2xl font-bold tracking-tight text-foreground">{value}</div>
     <div className="flex items-center justify-between mt-2">
       {subtitle && <span className="text-xs text-muted-foreground">{subtitle}</span>}
       {trend && (
@@ -72,24 +92,6 @@ const QuickAction: React.FC<QuickActionProps> = ({ label, icon, path, color }) =
       </div>
       <span className="text-sm font-semibold text-foreground">{label}</span>
     </button>
-  );
-};
-
-// ═══════════════════════════════════════
-//  CUSTOM TOOLTIP
-// ═══════════════════════════════════════
-
-const CustomTooltip = ({ active, payload, label }: { active?: boolean; payload?: Array<{ name: string; value: number; color: string }>; label?: string }) => {
-  if (!active || !payload?.length) return null;
-  return (
-    <div className="bg-card border border-border rounded-lg shadow-lg p-3">
-      <p className="text-xs font-semibold text-foreground mb-1">{label}</p>
-      {payload.map((p, i) => (
-        <p key={i} className="text-xs" style={{ color: p.color }}>
-          {p.name}: {formatCurrency(p.value)}
-        </p>
-      ))}
-    </div>
   );
 };
 
@@ -196,7 +198,7 @@ export const Dashboard: React.FC = () => {
       {/* ═══ Welcome Card ═══ */}
       <div className="bg-card border border-border text-card-foreground rounded-2xl p-6 shadow-xl">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div className="flex items-center space-x-4">
+          <div className="flex items-center gap-4">
             <div className="w-14 h-14 rounded-2xl bg-primary/15 border border-primary/30 flex items-center justify-center text-primary font-bold text-2xl">
               {user?.fullName?.charAt(0) || 'م'}
             </div>
@@ -276,7 +278,7 @@ export const Dashboard: React.FC = () => {
           </div>
           <div className="bg-card border border-border text-card-foreground rounded-xl p-4 shadow-sm">
             <span className="text-xs font-semibold text-muted-foreground block">الأصول الإجمالية</span>
-            <span className="text-lg font-bold font-mono text-foreground">{formatCurrency(kpis.totalAssets)}</span>
+            <span className="text-lg font-bold text-foreground">{formatCurrency(kpis.totalAssets)}</span>
           </div>
         </div>
       )}
@@ -287,15 +289,36 @@ export const Dashboard: React.FC = () => {
         <div className="lg:col-span-2 bg-card border border-border text-card-foreground rounded-xl p-5 shadow-sm">
           <h3 className="text-sm font-bold text-foreground mb-4">اتجاهات المبيعات والمشتريات الشهرية</h3>
           {chartData.length > 0 ? (
-            <ResponsiveContainer width="100%" height={280}>
-              <BarChart data={chartData} margin={{ top: 5, right: 20, left: 20, bottom: 5 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                <XAxis dataKey="month" tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }} />
-                <YAxis tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }} />
-                <Tooltip content={<CustomTooltip />} />
-                <Legend wrapperStyle={{ fontSize: 11 }} />
-                <Bar dataKey="sales" name="المبيعات" fill="hsl(142, 71%, 45%)" radius={[4, 4, 0, 0]} />
-                <Bar dataKey="purchases" name="المشتريات" fill="hsl(238, 84%, 59%)" radius={[4, 4, 0, 0]} />
+            <ResponsiveContainer width="100%" height={290}>
+              {/* BarChart (vertical): left margin + YAxis dx:-22 keep tick numbers outside the grid */}
+              <BarChart data={chartData} margin={{ top: 10, right: 20, left: 10, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.2} vertical={false} />
+                <XAxis
+                  dataKey="month"
+                  tickFormatter={formatShortDate}
+                  tick={X_AXIS_TICK}
+                  tickLine={false}
+                  axisLine={false}
+                  minTickGap={30}
+                />
+                <YAxis
+                  tickFormatter={formatShortNumber}
+                  tick={Y_AXIS_TICK}
+                  tickLine={false}
+                  axisLine={false}
+                />
+                <Tooltip
+                  contentStyle={tooltipStyle}
+                  formatter={(value) => formatCurrency(Number(value))}
+                />
+                <Legend
+                  wrapperStyle={{ paddingTop: 10, fontSize: 12, direction: 'rtl' }}
+                  formatter={(value) => (
+                    <span style={{ marginRight: '6px', marginLeft: '16px' }}>{value}</span>
+                  )}
+                />
+                <Bar dataKey="sales" name="المبيعات" fill="hsl(142, 71%, 45%)" barSize={28} radius={[6, 6, 0, 0]} />
+                <Bar dataKey="purchases" name="المشتريات" fill="hsl(217, 91%, 60%)" barSize={28} radius={[6, 6, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           ) : (
@@ -309,23 +332,39 @@ export const Dashboard: React.FC = () => {
         <div className="bg-card border border-border text-card-foreground rounded-xl p-5 shadow-sm">
           <h3 className="text-sm font-bold text-foreground mb-4">نسبة الإيرادات والتكاليف</h3>
           {pieData.length > 0 ? (
-            <ResponsiveContainer width="100%" height={280}>
-              <PieChart>
+            <ResponsiveContainer width="100%" height={290}>
+              {/* PieChart/DonutChart: symmetric margins reserve room for the bottom RTL legend */}
+              <PieChart margin={{ top: 15, right: 10, bottom: 15, left: 10 }}>
                 <Pie
                   data={pieData}
                   cx="50%"
-                  cy="50%"
-                  innerRadius={60}
-                  outerRadius={90}
-                  paddingAngle={5}
+                  cy="45%"
+                  innerRadius={55}
+                  outerRadius={85}
+                  paddingAngle={4}
                   dataKey="value"
-                  label={({ name, percent }) => `${name || ''} ${((percent || 0) * 100).toFixed(0)}%`}
                 >
                   {pieData.map((_, index) => (
-                    <Cell key={`cell-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />
+                    <Cell key={`cell-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} stroke="hsl(var(--card))" strokeWidth={2} />
                   ))}
                 </Pie>
-                <Tooltip formatter={(value: unknown) => [formatCurrency(Number(value)), '']} />
+                <Tooltip
+                  contentStyle={tooltipStyle}
+                  itemStyle={{ color: '#fff' }}
+                  formatter={(value, name) => [formatCurrency(Number(value)), name]}
+                />
+                <Legend
+                  align="center"
+                  verticalAlign="bottom"
+                  iconSize={8}
+                  iconType="circle"
+                  wrapperStyle={{ paddingTop: 16, direction: 'rtl' }}
+                  formatter={(value) => (
+                    <span className="text-xs text-foreground inline-block ms-1.5 me-3 py-0.5">
+                      {value}
+                    </span>
+                  )}
+                />
               </PieChart>
             </ResponsiveContainer>
           ) : (
@@ -360,12 +399,12 @@ export const Dashboard: React.FC = () => {
           <table className="w-full text-sm">
             <thead>
               <tr className="bg-muted/40 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                <th className="px-5 py-3 text-center">التاريخ</th>
-                <th className="px-5 py-3 text-center">النوع</th>
-                <th className="px-5 py-3 text-center">المرجع</th>
-                <th className="px-5 py-3 text-center">الطرف</th>
-                <th className="px-5 py-3 text-center">المبلغ</th>
-                <th className="px-5 py-3 text-center">الحالة</th>
+                <th className="px-5 py-3 text-right">التاريخ</th>
+                <th className="px-5 py-3 text-right">النوع</th>
+                <th className="px-5 py-3 text-right">المرجع</th>
+                <th className="px-5 py-3 text-right">الطرف</th>
+                <th className="px-5 py-3 text-right">المبلغ</th>
+                <th className="px-5 py-3 text-right">الحالة</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border/50">
@@ -380,7 +419,7 @@ export const Dashboard: React.FC = () => {
                 const sc = statusConfig[tx.status] || statusConfig.Draft;
                 return (
                   <tr key={tx.id} className="hover:bg-muted/30 transition-colors">
-                    <td className="px-5 py-3 text-center font-mono text-muted-foreground">{formatDate(tx.date)}</td>
+                    <td className="px-5 py-3 text-center text-muted-foreground">{formatDate(tx.date)}</td>
                     <td className="px-5 py-3 text-center">
                       <span className={`inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-semibold rounded-full border ${
                         tx.type === 'sale' ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/30' : 'bg-sky-500/10 text-sky-500 border-sky-500/30'
@@ -389,9 +428,9 @@ export const Dashboard: React.FC = () => {
                         {tx.type === 'sale' ? 'بيع' : 'شراء'}
                       </span>
                     </td>
-                    <td className="px-5 py-3 text-center font-mono font-semibold text-primary">{tx.reference}</td>
+                    <td className="px-5 py-3 text-center font-semibold text-primary">{tx.reference}</td>
                     <td className="px-5 py-3 text-center text-foreground">{tx.party}</td>
-                    <td className="px-5 py-3 text-center font-mono font-semibold text-foreground">{formatCurrency(tx.amount)}</td>
+                    <td className="px-5 py-3 text-center font-semibold text-foreground">{formatCurrency(tx.amount)}</td>
                     <td className="px-5 py-3 text-center">
                       <span className={`px-2.5 py-0.5 text-[10px] font-semibold rounded-full border ${sc.bg} ${sc.text} ${sc.border}`}>
                         {tx.statusName}

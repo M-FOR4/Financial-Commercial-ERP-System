@@ -2,9 +2,8 @@ import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { salesApi, type SalesReturnDto, type JournalEntryStatus, type CreateSalesReturnRequest, type SalesInvoiceDto } from '../../services/salesApi';
 
-const formatCurrency = (n: number) => new Intl.NumberFormat('en-LY', { minimumFractionDigits: 4, maximumFractionDigits: 4 }).format(n);
-const formatStock = (n: number) => new Intl.NumberFormat('en', { minimumFractionDigits: 0, maximumFractionDigits: 2 }).format(n);
-const formatDate = (s: string) => new Date(s).toLocaleDateString('en-GB');
+import { X } from 'lucide-react';
+import { formatCurrency, formatStock, formatDate } from '../../utils/format';
 
 const statusConfig: Record<JournalEntryStatus, { bg: string; text: string; border: string; label: string }> = {
   Draft: { bg: 'bg-amber-500/15', text: 'text-amber-400', border: 'border-amber-500/30', label: 'مسودة' },
@@ -126,18 +125,18 @@ const ReturnBuilder: React.FC<ReturnBuilderProps> = ({ isOpen, onClose }) => {
                   return (
                     <div key={rl.originalInvoiceLineId} className="grid grid-cols-[1fr_120px_100px_120px] gap-2 items-center bg-muted/30 rounded-lg p-3">
                       <div>
-                        <span className="font-mono text-xs text-muted-foreground mr-1">{origLine.productSKU}</span>
+                        <span className="text-xs text-muted-foreground mr-1">{origLine.productSKU}</span>
                         <span className="text-sm text-foreground">{origLine.productName}</span>
                         <span className="block text-[10px] text-muted-foreground mt-0.5">الكمية الأصلية: {formatStock(origLine.quantity)} @ {formatCurrency(origLine.unitPrice)}</span>
                       </div>
-                      <div className="text-right text-xs text-muted-foreground">تكلفة البيع: <span className="font-mono text-amber-500">{formatCurrency(origLine.unitCostAtSale)}</span>
+                      <div className="text-right text-xs text-muted-foreground">تكلفة البيع: <span className="text-amber-500">{formatCurrency(origLine.unitCostAtSale)}</span>
                       </div>
-                      <div className="text-right text-xs text-muted-foreground">حد المرتجع الأقصى: <span className="font-mono text-foreground">{formatStock(origLine.quantity)}</span>
+                      <div className="text-right text-xs text-muted-foreground">حد المرتجع الأقصى: <span className="text-foreground">{formatStock(origLine.quantity)}</span>
                       </div>
                       <input type="number" min="0.0001" step="0.0001" max={origLine.quantity} value={rl.quantity}
                         onChange={(e) => updateReturnQty(rl.originalInvoiceLineId, e.target.value)}
                         placeholder="كمية المرتجع"
-                        className="px-3 py-2 bg-input border-border rounded-lg text-foreground text-sm font-mono text-right focus:outline-none focus:ring-2 focus:ring-ring" />
+                        className="px-3 py-2 bg-input border-border rounded-lg text-foreground text-sm text-right focus:outline-none focus:ring-2 focus:ring-ring" />
                     </div>
                   );
                 })}
@@ -230,12 +229,12 @@ export const Returns: React.FC = () => {
                   const sc = statusConfig[ret.status];
                   return (
                     <tr key={ret.id} className="hover:bg-muted/30 cursor-pointer transition-colors" onClick={() => setSelectedReturn(ret)}>
-                      <td className="px-5 py-3 text-center font-mono font-semibold text-primary">{ret.returnNumber}</td>
-                      <td className="px-5 py-3 text-center font-mono text-muted-foreground">{formatDate(ret.returnDate)}</td>
-                      <td className="px-5 py-3 text-center font-mono text-muted-foreground">{ret.originalInvoiceNumber}</td>
+                      <td className="px-5 py-3 text-center font-semibold text-primary">{ret.returnNumber}</td>
+                      <td className="px-5 py-3 text-center text-muted-foreground">{formatDate(ret.returnDate)}</td>
+                      <td className="px-5 py-3 text-center text-muted-foreground">{ret.originalInvoiceNumber}</td>
                       <td className="px-5 py-3 text-center text-foreground">{ret.customerName}</td>
                       <td className="px-5 py-3 text-center"><span className={`px-2.5 py-0.5 text-[10px] font-semibold rounded-full border ${sc.bg} ${sc.text} ${sc.border}`}>{ret.statusName}</span></td>
-                      <td className="px-5 py-3 text-center font-mono font-semibold text-amber-500">{formatCurrency(ret.totalAmount)}</td>
+                      <td className="px-5 py-3 text-center font-semibold text-amber-500">{formatCurrency(ret.totalAmount)}</td>
                       <td className="px-5 py-3 text-center" onClick={(e) => e.stopPropagation()}>
                         {ret.status === 'Draft' && (
                           <button onClick={() => postMutation.mutate(ret.id)}
@@ -253,19 +252,19 @@ export const Returns: React.FC = () => {
 
       {/* Detail Drawer */}
       {selectedReturn && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={() => setSelectedReturn(null)}>
-          <div className="bg-card border border-border rounded-2xl shadow-2xl w-full max-w-2xl mx-4 max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-            <div className="px-6 py-4 border-b border-border sticky top-0 bg-card z-10 flex items-center justify-between">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4" onClick={() => setSelectedReturn(null)}>
+          <div className="bg-card border border-border rounded-2xl shadow-2xl w-full max-w-2xl mx-4 max-h-[calc(100vh-4rem)] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+            <div className="px-6 py-4 border-b border-border sticky top-0 bg-card z-10 relative flex items-center justify-between pl-14">
               <div>
                 <h3 className="text-lg font-bold text-foreground">{selectedReturn.returnNumber}</h3>
                 <span className="text-xs text-muted-foreground">الأصلي: {selectedReturn.originalInvoiceNumber} — {selectedReturn.customerName}</span>
               </div>
-              <div className="flex items-center gap-3">
-                <span className={`px-3 py-1 text-xs font-semibold rounded-full border ${statusConfig[selectedReturn.status].bg} ${statusConfig[selectedReturn.status].text} ${statusConfig[selectedReturn.status].border}`}>
-                  {selectedReturn.statusName}
-                </span>
-                <button onClick={() => setSelectedReturn(null)} className="text-muted-foreground hover:text-foreground text-xl">&times;</button>
-              </div>
+              <span className={`px-3 py-1 text-xs font-semibold rounded-full border ${statusConfig[selectedReturn.status].bg} ${statusConfig[selectedReturn.status].text} ${statusConfig[selectedReturn.status].border}`}>
+                {selectedReturn.statusName}
+              </span>
+              <button type="button" onClick={() => setSelectedReturn(null)} aria-label="إغلاق" className="absolute left-4 top-1/2 -translate-y-1/2 p-1.5 text-muted-foreground hover:text-foreground opacity-70 hover:opacity-100 transition-all">
+                <X size={20} />
+              </button>
             </div>
             <div className="p-6 space-y-4">
               <div className="border border-border rounded-lg overflow-hidden">
@@ -276,16 +275,16 @@ export const Returns: React.FC = () => {
                   <tbody className="divide-y divide-border/50">
                     {selectedReturn.lines.map(l => (
                       <tr key={l.id} className="hover:bg-muted/30">
-                        <td className="px-4 py-2.5 text-center"><span className="font-mono text-xs text-muted-foreground mr-1">{l.productSKU}</span><span className="text-foreground">{l.productName}</span></td>
-                        <td className="px-4 py-2.5 text-center font-mono">{formatStock(l.quantity)}</td>
-                        <td className="px-4 py-2.5 text-center font-mono text-amber-500">{formatCurrency(l.restockUnitCost)}</td>
-                        <td className="px-4 py-2.5 text-center font-mono font-semibold text-foreground">{formatCurrency(l.totalPrice)}</td>
+                        <td className="px-4 py-2.5 text-center"><span className="text-xs text-muted-foreground mr-1">{l.productSKU}</span><span className="text-foreground">{l.productName}</span></td>
+                        <td className="px-4 py-2.5 text-center">{formatStock(l.quantity)}</td>
+                        <td className="px-4 py-2.5 text-center text-amber-500">{formatCurrency(l.restockUnitCost)}</td>
+                        <td className="px-4 py-2.5 text-center font-semibold text-foreground">{formatCurrency(l.totalPrice)}</td>
                       </tr>
                     ))}
                   </tbody>
                   <tfoot><tr className="bg-muted/40 font-bold">
                     <td className="px-4 py-2.5 text-center text-muted-foreground" colSpan={3}>الإجمالي</td>
-                    <td className="px-4 py-2.5 text-center font-mono text-amber-500">{formatCurrency(selectedReturn.totalAmount)}</td>
+                    <td className="px-4 py-2.5 text-center text-amber-500">{formatCurrency(selectedReturn.totalAmount)}</td>
                   </tr></tfoot>
                 </table>
               </div>

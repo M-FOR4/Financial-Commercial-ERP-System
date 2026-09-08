@@ -1,15 +1,13 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { purchasesApi, type PurchaseReturnDto, type JournalEntryStatus, type PurchaseInvoiceDto } from '../../services/purchasesApi';
-
-const fmt = (n: number) => new Intl.NumberFormat('en-LY', { minimumFractionDigits: 4, maximumFractionDigits: 4 }).format(n);
-const fmtStock = (n: number) => new Intl.NumberFormat('en', { minimumFractionDigits: 0, maximumFractionDigits: 2 }).format(n);
-const fmtDate = (s: string) => new Date(s).toLocaleDateString('en-GB');
+import { X } from 'lucide-react';
+import { formatCurrency, formatStock, formatDate } from '../../utils/format';
 
 const sc: Record<JournalEntryStatus, { bg: string; text: string; border: string; label: string }> = {
   Draft: { bg: 'bg-amber-500/15', text: 'text-amber-400', border: 'border-amber-500/30', label: 'مسودة' },
   Posted: { bg: 'bg-emerald-500/15', text: 'text-emerald-400', border: 'border-emerald-500/30', label: 'مرحل' },
-  Cancelled: { bg: 'bg-red-500/15', text: 'text-red-400', border: 'border-red-500/30', label: 'ملغي' },
+  Cancelled: { bg: 'bg-destructive/15', text: 'text-destructive', border: 'border-destructive/30', label: 'ملغي' },
 };
 
 const ReturnBuilder: React.FC<{ isOpen: boolean; onClose: () => void }> = ({ isOpen, onClose }) => {
@@ -58,7 +56,7 @@ const ReturnBuilder: React.FC<{ isOpen: boolean; onClose: () => void }> = ({ isO
             </div></div>
           {selectedInv && (
             <div>
-              <div className="bg-muted/40 rounded-lg p-3 mb-3 text-xs text-muted-foreground"><span className="font-semibold text-foreground">{selectedInv.invoiceNumber}</span> — {selectedInv.supplierName} — {fmtDate(selectedInv.invoiceDate)}</div>
+              <div className="bg-muted/40 rounded-lg p-3 mb-3 text-xs text-muted-foreground"><span className="font-semibold text-foreground">{selectedInv.invoiceNumber}</span> — {selectedInv.supplierName} — {formatDate(selectedInv.invoiceDate)}</div>
               <h4 className="text-sm font-semibold text-foreground mb-3">بنود المرتجع</h4>
               <div className="space-y-2">
                 {returnLines.map(rl => {
@@ -66,10 +64,10 @@ const ReturnBuilder: React.FC<{ isOpen: boolean; onClose: () => void }> = ({ isO
                   if (!orig) return null;
                   return (
                     <div key={rl.originalInvoiceLineId} className="grid grid-cols-[1fr_120px_120px] gap-2 items-center bg-muted/30 rounded-lg p-3">
-                      <div><span className="font-mono text-xs text-muted-foreground mr-1">{orig.productSKU}</span><span className="text-sm text-foreground">{orig.productName}</span>
-                        <span className="block text-[10px] text-muted-foreground mt-0.5">الكمية الأصلية: {fmtStock(orig.quantity)} | التكلفة الفعّالة: {fmt(orig.effectiveUnitCost)}</span></div>
-                      <div className="text-right text-xs text-muted-foreground">حد المرتجع الأقصى: <span className="font-mono text-foreground">{fmtStock(orig.quantity)}</span></div>
-                      <input type="number" min="0.0001" step="0.0001" max={orig.quantity} value={rl.quantity} onChange={(e) => setReturnLines(prev => prev.map(l => l.originalInvoiceLineId === rl.originalInvoiceLineId ? { ...l, quantity: e.target.value } : l))} placeholder="الكمية" className="px-3 py-2 bg-input border-border rounded-lg text-foreground text-sm font-mono text-right focus:outline-none focus:ring-2 focus:ring-ring" />
+                      <div><span className="text-xs text-muted-foreground ml-1.5">{orig.productSKU}</span><span className="text-sm text-foreground">{orig.productName}</span>
+                        <span className="block text-[10px] text-muted-foreground mt-0.5">الكمية الأصلية: {formatStock(orig.quantity)} | التكلفة الفعّالة: {formatCurrency(orig.effectiveUnitCost)}</span></div>
+                      <div className="text-right text-xs text-muted-foreground">حد المرتجع الأقصى: <span className="text-foreground font-semibold">{formatStock(orig.quantity)}</span></div>
+                      <input type="number" min="0.0001" step="0.0001" max={orig.quantity} value={rl.quantity} onChange={(e) => setReturnLines(prev => prev.map(l => l.originalInvoiceLineId === rl.originalInvoiceLineId ? { ...l, quantity: e.target.value } : l))} placeholder="الكمية" className="px-3 py-2 bg-input border-border rounded-lg text-foreground text-sm text-right focus:outline-none focus:ring-2 focus:ring-ring" />
                     </div>
                   );
                 })}
@@ -105,25 +103,25 @@ export const Returns: React.FC = () => {
         <button onClick={() => setStatusFilter('')} className={`px-3 py-1.5 text-xs font-semibold rounded-lg border ${statusFilter === '' ? 'bg-primary text-primary-foreground border-primary' : 'bg-muted text-muted-foreground border-border'}`}>الكل</button>
         {(['Draft', 'Posted', 'Cancelled'] as JournalEntryStatus[]).map(s => <button key={s} onClick={() => setStatusFilter(statusFilter === s ? '' : s)} className={`px-3 py-1.5 text-xs font-semibold rounded-lg border ${statusFilter === s ? `${sc[s].bg} ${sc[s].text} ${sc[s].border}` : 'bg-muted text-muted-foreground border-border'}`}>{sc[s].label}</button>)}
       </div>
-      {error && <div className="p-4 bg-destructive/10 border border-destructive/30 rounded-lg text-destructive text-sm">فشل.</div>}
+      {error && <div className="p-4 bg-destructive/10 border border-destructive/30 rounded-lg text-destructive text-sm">فشل تحميل البيانات.</div>}
       {isLoading && <div className="flex items-center justify-center p-12 text-muted-foreground space-x-3"><div className="w-5 h-5 border-2 border-primary border-t-transparent rounded-full animate-spin" /><span>جاري التحميل...</span></div>}
       {!isLoading && !error && (
-        <div className="bg-card border border-border rounded-2xl overflow-hidden">
+        <div className="bg-card border border-border rounded-2xl overflow-hidden shadow-sm">
           <table className="w-full text-sm">
             <thead><tr className="bg-muted/40 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-              <th className="px-5 py-3 text-center">رقم المرتجع</th><th className="px-5 py-3 text-center">التاريخ</th><th className="px-5 py-3 text-center">الفاتورة الأصلية</th><th className="px-5 py-3 text-center">المورد</th><th className="px-5 py-3 text-center">الحالة</th><th className="px-5 py-3 text-center">الإجمالي</th><th className="px-5 py-3 text-center">الإجراء</th>
+              <th className="px-5 py-3 text-right">رقم المرتجع</th><th className="px-5 py-3 text-right">التاريخ</th><th className="px-5 py-3 text-right">الفاتورة الأصلية</th><th className="px-5 py-3 text-right">المورد</th><th className="px-5 py-3 text-center">الحالة</th><th className="px-5 py-3 text-left">الإجمالي</th><th className="px-5 py-3 text-center">الإجراء</th>
             </tr></thead>
             <tbody className="divide-y divide-border/50">
               {returns.length === 0 ? <tr><td colSpan={7} className="px-5 py-12 text-center text-muted-foreground">لا توجد مرتجعات.</td></tr> : returns.map(ret => (
                 <tr key={ret.id} className="hover:bg-muted/30 cursor-pointer" onClick={() => setSelected(ret)}>
-                  <td className="px-5 py-3 text-center font-mono font-semibold text-primary">{ret.returnNumber}</td>
-                  <td className="px-5 py-3 text-center font-mono text-muted-foreground">{fmtDate(ret.returnDate)}</td>
-                  <td className="px-5 py-3 text-center font-mono text-muted-foreground">{ret.originalInvoiceNumber}</td>
-                  <td className="px-5 py-3 text-center text-foreground">{ret.supplierName}</td>
+                  <td className="px-5 py-3 text-right font-semibold text-primary">{ret.returnNumber}</td>
+                  <td className="px-5 py-3 text-right text-muted-foreground">{formatDate(ret.returnDate)}</td>
+                  <td className="px-5 py-3 text-right text-muted-foreground">{ret.originalInvoiceNumber}</td>
+                  <td className="px-5 py-3 text-right text-foreground">{ret.supplierName}</td>
                   <td className="px-5 py-3 text-center"><span className={`px-2.5 py-0.5 text-[10px] font-semibold rounded-full border ${sc[ret.status].bg} ${sc[ret.status].text} ${sc[ret.status].border}`}>{sc[ret.status].label}</span></td>
-                  <td className="px-5 py-3 text-center font-mono font-semibold text-amber-500">{fmt(ret.totalAmount)}</td>
+                  <td className="px-5 py-3 text-left font-semibold text-amber-500">{formatCurrency(ret.totalAmount)}</td>
                   <td className="px-5 py-3 text-center" onClick={(e) => e.stopPropagation()}>
-                    {ret.status === 'Draft' && <button onClick={() => postMut.mutate(ret.id)} className="px-2 py-1 text-[10px] font-semibold text-emerald-500 bg-emerald-500/10 border border-emerald-500/30 rounded">ترحيل</button>}
+                    {ret.status === 'Draft' && <button onClick={() => postMut.mutate(ret.id)} className="px-2.5 py-1 text-xs font-semibold text-emerald-500 bg-emerald-500/10 border border-emerald-500/30 rounded-lg hover:bg-emerald-500/20">ترحيل</button>}
                   </td>
                 </tr>
               ))}
@@ -132,25 +130,28 @@ export const Returns: React.FC = () => {
         </div>
       )}
       {selected && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={() => setSelected(null)}>
-          <div className="bg-card border border-border rounded-2xl shadow-2xl w-full max-w-2xl mx-4 max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-            <div className="px-6 py-4 border-b border-border sticky top-0 bg-card z-10 flex items-center justify-between">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4" onClick={() => setSelected(null)}>
+          <div className="bg-card border border-border rounded-2xl shadow-2xl w-full max-w-2xl mx-4 max-h-[calc(100vh-4rem)] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+            <div className="px-6 py-4 border-b border-border sticky top-0 bg-card z-10 relative flex items-center justify-between pl-14">
               <div><h3 className="text-lg font-bold text-foreground">{selected.returnNumber}</h3><span className="text-xs text-muted-foreground">الأصلي: {selected.originalInvoiceNumber} — {selected.supplierName}</span></div>
-              <div className="flex items-center gap-3"><span className={`px-3 py-1 text-xs font-semibold rounded-full border ${sc[selected.status].bg} ${sc[selected.status].text} ${sc[selected.status].border}`}>{sc[selected.status].label}</span><button onClick={() => setSelected(null)} className="text-muted-foreground hover:text-foreground text-xl">&times;</button></div>
+              <span className={`px-3 py-1 text-xs font-semibold rounded-full border ${sc[selected.status].bg} ${sc[selected.status].text} ${sc[selected.status].border}`}>{sc[selected.status].label}</span>
+              <button type="button" onClick={() => setSelected(null)} aria-label="إغلاق" className="absolute left-4 top-1/2 -translate-y-1/2 p-1.5 text-muted-foreground hover:text-foreground opacity-70 hover:opacity-100 transition-all">
+                <X size={20} />
+              </button>
             </div>
             <div className="p-6 space-y-4">
               <div className="border border-border rounded-lg overflow-hidden">
                 <table className="w-full text-sm">
-                  <thead><tr className="bg-muted/40 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground"><th className="px-4 py-2.5 text-center">الصنف</th><th className="px-4 py-2.5 text-center">الكمية</th><th className="px-4 py-2.5 text-center">تكلفة الوحدة</th><th className="px-4 py-2.5 text-center">الإجمالي</th></tr></thead>
+                  <thead><tr className="bg-muted/40 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground"><th className="px-4 py-2.5 text-right">الصنف</th><th className="px-4 py-2.5 text-center">الكمية</th><th className="px-4 py-2.5 text-left">تكلفة الوحدة</th><th className="px-4 py-2.5 text-left">الإجمالي</th></tr></thead>
                   <tbody className="divide-y divide-border/50">
                     {selected.lines.map(l => <tr key={l.id} className="hover:bg-muted/30">
-                      <td className="px-4 py-2.5 text-center"><span className="font-mono text-xs text-muted-foreground mr-1">{l.productSKU}</span><span className="text-foreground">{l.productName}</span></td>
-                      <td className="px-4 py-2.5 text-center font-mono">{fmtStock(l.quantity)}</td>
-                      <td className="px-4 py-2.5 text-center font-mono text-amber-500">{fmt(l.unitCost)}</td>
-                      <td className="px-4 py-2.5 text-center font-mono font-semibold text-foreground">{fmt(l.totalPrice)}</td>
+                      <td className="px-4 py-2.5 text-right"><span className="text-xs text-muted-foreground ml-1.5">{l.productSKU}</span><span className="text-foreground">{l.productName}</span></td>
+                      <td className="px-4 py-2.5 text-center">{formatStock(l.quantity)}</td>
+                      <td className="px-4 py-2.5 text-left text-amber-500">{formatCurrency(l.unitCost)}</td>
+                      <td className="px-4 py-2.5 text-left font-semibold text-foreground">{formatCurrency(l.totalPrice)}</td>
                     </tr>)}
                   </tbody>
-                  <tfoot><tr className="bg-muted/40 font-bold"><td className="px-4 py-2.5 text-center text-muted-foreground" colSpan={3}>الإجمالي</td><td className="px-4 py-2.5 text-center font-mono text-amber-500">{fmt(selected.totalAmount)}</td></tr></tfoot>
+                  <tfoot><tr className="bg-muted/40 font-bold"><td className="px-4 py-2.5 text-right text-muted-foreground" colSpan={3}>الإجمالي</td><td className="px-4 py-2.5 text-left text-amber-500">{formatCurrency(selected.totalAmount)}</td></tr></tfoot>
                 </table>
               </div>
               {selected.status === 'Draft' && <div className="flex gap-3">
@@ -166,3 +167,4 @@ export const Returns: React.FC = () => {
     </div>
   );
 };
+

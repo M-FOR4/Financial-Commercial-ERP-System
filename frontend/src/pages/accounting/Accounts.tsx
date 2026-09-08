@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { accountingApi, type AccountDto, type AccountType } from '../../services/accountingApi';
+import { X } from 'lucide-react';
+import { formatBalance, accountTypeLabelsAr } from '../../utils/format';
 
 // ── Helpers ──
 
@@ -13,11 +15,6 @@ const accountTypeColors: Record<string, { bg: string; text: string; border: stri
   Revenue: { bg: 'bg-sky-500/15', text: 'text-sky-400', border: 'border-sky-500/30' },
   Expense: { bg: 'bg-amber-500/15', text: 'text-amber-400', border: 'border-amber-500/30' },
 };
-
-
-
-const formatBalance = (n: number) =>
-  new Intl.NumberFormat('en-LY', { minimumFractionDigits: 4, maximumFractionDigits: 4 }).format(n);
 
 // ── Account Tree Node ──
 
@@ -35,7 +32,7 @@ const AccountNode: React.FC<AccountNodeProps> = ({ account, depth, onEdit }) => 
   return (
     <div>
       <div
-        className={`flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-muted/40 transition-colors group cursor-pointer`}
+        className={`flex items-center gap-2 px-3 py-2.5 rounded-lg hover:bg-muted/40 transition-colors group cursor-pointer`}
         style={{ paddingLeft: `${depth * 24 + 12}px` }}
       >
         {/* Expand/Collapse toggle */}
@@ -52,18 +49,18 @@ const AccountNode: React.FC<AccountNodeProps> = ({ account, depth, onEdit }) => 
         </button>
 
         {/* Code badge */}
-        <span className="w-14 text-xs font-mono font-semibold text-muted-foreground text-right shrink-0">
+        <span className="w-16 text-xs font-bold text-muted-foreground text-right shrink-0">
           {account.code}
         </span>
 
         {/* Name */}
-        <span className={`text-sm font-medium flex-1 ${account.isHeader ? 'text-foreground font-semibold' : 'text-foreground'}`}>
+        <span className={`text-sm flex-1 ${account.isHeader ? 'text-foreground font-bold' : 'text-foreground font-medium'}`}>
           {account.name}
         </span>
 
         {/* Type badge */}
         <span className={`px-2 py-0.5 text-[10px] font-semibold rounded-full border ${colors.bg} ${colors.text} ${colors.border} shrink-0`}>
-          {account.type}
+          {accountTypeLabelsAr[account.type] || account.type}
         </span>
 
         {/* Header / Active indicators */}
@@ -80,14 +77,14 @@ const AccountNode: React.FC<AccountNodeProps> = ({ account, depth, onEdit }) => 
 
         {/* Balance */}
         {!account.isHeader && (
-          <span className={`text-sm font-mono font-semibold shrink-0 ml-2 ${account.balance >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+          <span className={`text-sm font-bold shrink-0 ml-2 ${account.balance >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
             {account.balance >= 0 ? '+' : ''}{formatBalance(account.balance)}
           </span>
         )}
 
         {/* Edit button */}
         <button
-          className="opacity-0 group-hover:opacity-100 px-2 py-1 text-xs text-indigo-400 hover:text-indigo-300 bg-indigo-900/30 hover:bg-indigo-900/50 border border-indigo-700/40 rounded transition-all shrink-0"
+          className="opacity-0 group-hover:opacity-100 px-2 py-1 text-xs font-semibold text-primary hover:text-primary/80 bg-primary/10 hover:bg-primary/20 border border-primary/20 rounded-lg transition-all shrink-0"
           onClick={(e) => {
             e.stopPropagation();
             onEdit(account);
@@ -195,10 +192,18 @@ const AccountModal: React.FC<AccountModalProps> = ({ isOpen, onClose, account, p
   const isSubmitting = createMutation.isPending || updateMutation.isPending;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={onClose}>
-      <div className="bg-card border border-border rounded-2xl shadow-2xl w-full max-w-lg mx-4" onClick={(e) => e.stopPropagation()}>
-        <div className="px-6 py-4 border-b border-border">
-          <h3 className="text-lg font-bold text-foreground">{isEditing ? 'تعديل الحساب' : 'إضافة حساب جديد'}</h3>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4" onClick={onClose}>
+      <div className="bg-card border border-border rounded-2xl shadow-2xl w-full max-w-lg mx-4 max-h-[calc(100vh-4rem)] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+        <div className="px-6 py-4 border-b border-border sticky top-0 bg-card z-10 relative">
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="إغلاق"
+            className="absolute left-4 top-1/2 -translate-y-1/2 p-1.5 text-muted-foreground hover:text-foreground opacity-70 hover:opacity-100 transition-all"
+          >
+            <X size={20} />
+          </button>
+          <h3 className="text-lg font-bold text-foreground pl-12">{isEditing ? 'تعديل الحساب' : 'إضافة حساب جديد'}</h3>
         </div>
 
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
@@ -218,7 +223,7 @@ const AccountModal: React.FC<AccountModalProps> = ({ isOpen, onClose, account, p
               onChange={(e) => setCode(e.target.value)}
               disabled={isEditing}
               placeholder="مثال: 1150"
-              className="w-full px-4 py-2.5 bg-input border-border rounded-lg text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full px-4 py-2.5 bg-input border-border rounded-lg text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring text-sm disabled:opacity-50 disabled:cursor-not-allowed"
             />
           </div>
 
@@ -231,7 +236,7 @@ const AccountModal: React.FC<AccountModalProps> = ({ isOpen, onClose, account, p
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="مثال: صندوق صغير"
-              className="w-full px-4 py-2.5 bg-input border-border rounded-lg text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
+              className="w-full px-4 py-2.5 bg-input border-border rounded-lg text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring text-sm"
             />
           </div>
 
@@ -260,7 +265,7 @@ const AccountModal: React.FC<AccountModalProps> = ({ isOpen, onClose, account, p
               <select
                 value={parentId || ''}
                 onChange={(e) => setParentId(e.target.value || null)}
-                className="w-full px-4 py-2.5 bg-input border-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
+                className="w-full px-4 py-2.5 bg-input border-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-ring text-sm"
               >
                 <option value="">بدون أصل (المستوى الجذر)</option>
                 {flatList
@@ -281,7 +286,7 @@ const AccountModal: React.FC<AccountModalProps> = ({ isOpen, onClose, account, p
                 type="checkbox"
                 checked={isHeader}
                 onChange={(e) => setIsHeader(e.target.checked)}
-                className="w-4 h-4 rounded border-border bg-input text-indigo-500 focus:ring-indigo-500"
+                className="w-4 h-4 rounded border-border bg-input text-primary focus:ring-ring"
               />
               <span className="text-sm text-foreground">حساب رئيسي</span>
             </label>
@@ -290,7 +295,7 @@ const AccountModal: React.FC<AccountModalProps> = ({ isOpen, onClose, account, p
                 type="checkbox"
                 checked={isActive}
                 onChange={(e) => setIsActive(e.target.checked)}
-                className="w-4 h-4 rounded border-border bg-input text-indigo-500 focus:ring-indigo-500"
+                className="w-4 h-4 rounded border-border bg-input text-primary focus:ring-ring"
               />
               <span className="text-sm text-foreground">نشط</span>
             </label>
@@ -418,7 +423,7 @@ export const Accounts: React.FC = () => {
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="بحث بالكود أو الاسم..."
-            className="w-full px-4 py-2 bg-input border-border rounded-lg text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
+            className="w-full px-4 py-2 bg-input border-border rounded-lg text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring text-sm"
           />
         </div>
 
@@ -446,7 +451,7 @@ export const Accounts: React.FC = () => {
                     : 'bg-muted text-muted-foreground border-border hover:text-foreground'
                 }`}
               >
-                {t}
+                {accountTypeLabelsAr[t]}
               </button>
             );
           })}
@@ -462,8 +467,8 @@ export const Accounts: React.FC = () => {
 
       {/* Loading state */}
       {isLoading && (
-        <div className="flex items-center justify-center p-12 text-muted-foreground space-x-3">
-          <div className="w-5 h-5 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" />
+        <div className="flex items-center justify-center p-12 text-muted-foreground gap-3">
+          <div className="w-5 h-5 border-2 border-primary border-t-transparent rounded-full animate-spin" />
           <span>جاري تحميل شجرة الحسابات...</span>
         </div>
       )}
@@ -497,7 +502,7 @@ export const Accounts: React.FC = () => {
                     <div style={{ paddingLeft: '36px' }}>
                       <button
                         onClick={() => handleAddChild(account)}
-                        className="text-xs text-indigo-500 hover:text-indigo-400 mb-1 flex items-center gap-1 transition-colors"
+                        className="text-xs text-primary hover:text-primary/70 mb-1 flex items-center gap-1 transition-colors"
                       >
                         <span>+</span> إضافة حساب فرعي تحت {account.code}
                       </button>

@@ -123,7 +123,19 @@
     line-height: 1.5;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    direction: rtl;
+    text-align: right;
+    font-feature-settings: "rlh" 1, "cv02", "cv03", "cv04";
   }
+
+  /* Tabular numeric alignment for all data tables (digits align in columns
+     without switching to a mono typeface) */
+  table td,
+  table th {
+    font-variant-numeric: tabular-nums;
+  }
+
+
 }
 
 /* ═══════════════════════════════════════
@@ -152,4 +164,43 @@
 * {
   scrollbar-width: thin;
   scrollbar-color: rgba(156, 163, 175, 0.4) transparent;
+}
+
+/* ═══════════════════════════════════════
+   PRINT ENGINE (A4 Output)
+   ═══════════════════════════════════════ */
+
+@media print {
+  @page {
+    size: A4 portrait;
+    margin: 5mm;
+  }
+
+  /* Hide all app chrome */
+  aside,
+  header,
+  nav,
+  .no-print {
+    display: none !important;
+  }
+
+  body {
+    background: #fff !important;
+    color: #000 !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  /* Print area containers */
+  .voucher-print-area,
+  .invoice-print-area {
+    border: 2px solid #1e293b;
+    border-radius: 0.75rem;
+    padding: 1.5rem;
+  }
+
+  .report-print-area {
+    width: 100%;
+    border: none;
+  }
 }

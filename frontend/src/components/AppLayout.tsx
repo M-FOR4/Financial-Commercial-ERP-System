@@ -163,7 +163,7 @@ const Sidebar: React.FC<SidebarProps> = ({ open, onToggle }) => {
             <span className="text-sm font-bold text-white whitespace-nowrap block leading-tight">
               نظام ERP
             </span>
-            <span className="text-[10px] font-mono leading-none text-slate-500">
+            <span className="text-[10px] leading-none text-slate-500">
               V1.0 ليبيا
             </span>
           </div>
@@ -362,7 +362,7 @@ export const AppLayout: React.FC<{ children: React.ReactNode }> = ({ children })
           <div className="flex items-center gap-3">
             <button
               onClick={() => setSidebarOpen(!sidebarOpen)}
-              className="p-2 rounded-lg transition-300 hover:bg-accent"
+              className="p-2 rounded-lg transition-colors duration-200 hover:bg-accent"
               style={{ color: 'hsl(var(--muted-foreground))' }}
               title={sidebarOpen ? 'إغلاق القائمة' : 'فتح القائمة'}
             >
@@ -382,7 +382,7 @@ export const AppLayout: React.FC<{ children: React.ReactNode }> = ({ children })
               </span>
             )}
             <span
-              className="hidden sm:inline-flex px-2.5 py-1 text-xs font-semibold font-mono rounded-full border"
+              className="hidden sm:inline-flex px-2.5 py-1 text-xs font-semibold rounded-full border"
               style={{
                 backgroundColor: 'hsl(var(--primary) / 0.1)',
                 color: 'hsl(var(--primary))',
@@ -532,7 +532,7 @@ export const AppLayout: React.FC<{ children: React.ReactNode }> = ({ children })
         </header>
 
         {/* Page Content */}
-        <main className="flex-1 max-w-7xl w-full mx-auto p-6">{children}</main>
+        <main className="flex-1 max-w-7xl w-full mx-auto p-4 md:p-6 lg:p-8 text-right">{children}</main>
 
 
       </div>

@@ -162,12 +162,12 @@ export const Transfers: React.FC = () => {
                 const sc = statusConfig[transfer.status];
                 return (
                   <tr key={transfer.id} className="border-b border-border/50 hover:bg-muted/30">
-                    <td className="px-4 py-3 font-mono text-sm text-foreground">{transfer.transferNumber}</td>
+                    <td className="px-4 py-3 text-sm text-foreground">{transfer.transferNumber}</td>
                     <td className="px-4 py-3 text-sm text-muted-foreground">{new Date(transfer.date).toLocaleDateString()}</td>
                     <td className="px-4 py-3 text-sm text-red-400">{transfer.fromTreasuryName}</td>
                     <td className="px-4 py-3 text-center text-muted-foreground">→</td>
                     <td className="px-4 py-3 text-sm text-emerald-400">{transfer.toTreasuryName}</td>
-                    <td className="px-4 py-3 text-right font-mono text-sm font-bold text-foreground">{formatCurrency(transfer.amount)}</td>
+                    <td className="px-4 py-3 text-right text-sm font-bold text-foreground">{formatCurrency(transfer.amount)}</td>
                     <td className="px-4 py-3 text-center">
                       <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold ${sc.bg} ${sc.text} border ${sc.border}`}>{sc.label}</span>
                     </td>

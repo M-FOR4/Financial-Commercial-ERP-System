@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { treasuryApi, type Treasury, type TreasuryRequest } from '../../services/cashBankApi';
 import { api } from '../../services/api';
 import type { AccountDto } from '../../services/accountingApi';
+import { X } from 'lucide-react';
 import { formatCurrency } from '../../utils/format';
 
 export const Treasuries: React.FC = () => {
@@ -96,15 +97,15 @@ export const Treasuries: React.FC = () => {
                 <tr><td colSpan={7} className="px-4 py-12 text-center text-muted-foreground">لم يتم إعداد خزائن بعد.</td></tr>
               ) : treasuries.map(treasury => (
                 <tr key={treasury.id} className="border-b border-border/50 hover:bg-muted/30">
-                  <td className="px-4 py-3 font-mono text-sm text-foreground">{treasury.code}</td>
+                  <td className="px-4 py-3 text-sm text-foreground">{treasury.code}</td>
                   <td className="px-4 py-3 text-sm font-medium text-foreground">{treasury.name}</td>
                   <td className="px-4 py-3">
                     <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold ${treasury.type === 'Cash' ? 'bg-emerald-950 text-emerald-400 border border-emerald-800/50' : 'bg-blue-950 text-blue-400 border border-blue-800/50'}`}>
                       {treasury.type === 'Cash' ? '💵 نقدي' : '🏦 بنك'}
                     </span>
                   </td>
-                  <td className="px-4 py-3 text-sm text-muted-foreground font-mono">{treasury.accountName}</td>
-                  <td className={`px-4 py-3 text-right font-mono text-sm font-bold ${treasury.balance >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>{formatCurrency(treasury.balance)}</td>
+                  <td className="px-4 py-3 text-sm text-muted-foreground">{treasury.accountName}</td>
+                  <td className={`px-4 py-3 text-right text-sm font-bold ${treasury.balance >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>{formatCurrency(treasury.balance)}</td>
                   <td className="px-4 py-3 text-sm text-muted-foreground">{treasury.currency}</td>
                   <td className="px-4 py-3 text-center">
                     <button onClick={() => handleOpenModal(treasury)}
@@ -118,9 +119,12 @@ export const Treasuries: React.FC = () => {
       </div>
 
       {showModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-          <div className="bg-card border border-border rounded-2xl shadow-2xl w-full max-w-md p-6">
-            <h2 className="text-lg font-bold text-foreground mb-4">{editingTreasury ? 'تعديل الخزينة' : 'خزينة جديدة'}</h2>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4">
+          <div className="bg-card border border-border rounded-2xl shadow-2xl w-full max-w-md p-6 max-h-[calc(100vh-4rem)] overflow-y-auto relative">
+            <button type="button" onClick={() => setShowModal(false)} aria-label="إغلاق" className="absolute left-4 top-4 p-1.5 text-muted-foreground hover:text-foreground opacity-70 hover:opacity-100 transition-all">
+              <X size={20} />
+            </button>
+            <h2 className="text-lg font-bold text-foreground mb-4 pl-12">{editingTreasury ? 'تعديل الخزينة' : 'خزينة جديدة'}</h2>
             {error && <div className="mb-4 px-3 py-2 bg-red-950 border border-red-800/50 rounded-lg text-sm text-red-400">{error}</div>}
             <div className="space-y-4">
               <div className="grid grid-cols-2 gap-4">

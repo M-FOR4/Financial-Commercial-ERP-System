@@ -193,7 +193,7 @@ export const CashVouchers: React.FC = () => {
                 const sc = statusConfig[voucher.status];
                 return (
                   <tr key={voucher.id} className="border-b border-border/50 hover:bg-muted/30">
-                    <td className="px-4 py-3 font-mono text-sm text-foreground">{voucher.voucherNumber}</td>
+                    <td className="px-4 py-3 text-sm text-foreground">{voucher.voucherNumber}</td>
                     <td className="px-4 py-3">
                       <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold ${voucher.voucherType === 'Receipt' ? 'bg-emerald-950 text-emerald-400 border border-emerald-800/50' : 'bg-amber-950 text-amber-400 border border-amber-800/50'}`}>
                         {voucher.voucherType === 'Receipt' ? '↓ قبض' : '↑ صرف'}
@@ -202,7 +202,7 @@ export const CashVouchers: React.FC = () => {
                     <td className="px-4 py-3 text-sm text-muted-foreground">{new Date(voucher.date).toLocaleDateString()}</td>
                     <td className="px-4 py-3 text-sm text-foreground">{voucher.treasuryName}</td>
                     <td className="px-4 py-3 text-sm text-muted-foreground max-w-[200px] truncate">{voucher.description}</td>
-                    <td className={`px-4 py-3 text-right font-mono text-sm font-bold ${voucher.voucherType === 'Receipt' ? 'text-emerald-400' : 'text-red-400'}`}>{formatCurrency(voucher.amount)}</td>
+                    <td className={`px-4 py-3 text-right text-sm font-bold ${voucher.voucherType === 'Receipt' ? 'text-emerald-400' : 'text-red-400'}`}>{formatCurrency(voucher.amount)}</td>
                     <td className="px-4 py-3 text-center">
                       <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold ${sc.bg} ${sc.text} border ${sc.border}`}>{sc.label}</span>
                     </td>

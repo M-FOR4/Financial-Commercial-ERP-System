@@ -132,7 +132,7 @@ export const AuditLogs: React.FC = () => {
                   const ac = actionColors[log.action] || 'bg-muted text-muted-foreground border-border';
                   return (
                     <tr key={log.id} className="border-b border-border hover:bg-muted/50 transition-colors">
-                      <td className="px-4 py-3 text-xs text-muted-foreground font-mono whitespace-nowrap">
+                      <td className="px-4 py-3 text-xs text-muted-foreground whitespace-nowrap">
                         {new Date(log.timestamp).toLocaleString()}
                       </td>
                       <td className="px-4 py-3 text-sm text-foreground">
@@ -143,12 +143,12 @@ export const AuditLogs: React.FC = () => {
                           {log.action}
                         </span>
                       </td>
-                      <td className="px-4 py-3 text-sm text-foreground font-mono">{log.entityName}</td>
-                      <td className="px-4 py-3 text-xs text-muted-foreground font-mono truncate max-w-[120px]">{log.entityId || '-'}</td>
+                      <td className="px-4 py-3 text-sm text-foreground">{log.entityName}</td>
+                      <td className="px-4 py-3 text-xs text-muted-foreground truncate max-w-[120px]">{log.entityId || '-'}</td>
                       <td className="px-4 py-3 text-xs text-muted-foreground max-w-[200px] truncate" title={formatJson(log.details) || ''}>
                         {formatJson(log.details) || '-'}
                       </td>
-                      <td className="px-4 py-3 text-xs text-muted-foreground font-mono">{log.ipAddress || '-'}</td>
+                      <td className="px-4 py-3 text-xs text-muted-foreground">{log.ipAddress || '-'}</td>
                     </tr>
                   );
                 })

@@ -30,7 +30,7 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, allowe
           <p className="text-muted-foreground text-sm mb-6">
             ليس لديك الصلاحية الكافية للوصول إلى هذه الصفحة.
             <br />
-            <span className="font-mono text-xs text-primary mt-2 block">({requiredPermission})</span>
+            <span className="text-xs text-primary mt-2 block">({requiredPermission})</span>
           </p>
           <Navigate to="/" replace />
         </div>

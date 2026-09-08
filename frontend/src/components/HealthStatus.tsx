@@ -54,7 +54,7 @@ export const HealthStatus: React.FC = () => {
           <p className="text-sm opacity-90 mb-3">
             لا يمكن الاتصال بـ ASP.NET Core API على <code className="bg-destructive/20 px-1.5 py-0.5 rounded">{import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'}</code>.
           </p>
-          <p className="text-xs font-mono">
+          <p className="text-xs">
             {error instanceof Error ? error.message : 'تم رفض الاتصال.'}
           </p>
         </div>
@@ -74,12 +74,12 @@ export const HealthStatus: React.FC = () => {
                 </span>
               </div>
             </div>
-            <span className="px-3 py-1 text-xs font-mono font-semibold bg-emerald-500/20 text-emerald-600 dark:text-emerald-300 rounded-full border border-emerald-500/40">
+            <span className="px-3 py-1 text-xs font-semibold bg-emerald-500/20 text-emerald-600 dark:text-emerald-300 rounded-full border border-emerald-500/40">
               HTTP 200 OK
             </span>
           </div>
 
-          <div className="grid grid-cols-2 gap-4 text-xs font-mono text-muted-foreground">
+          <div className="grid grid-cols-2 gap-4 text-xs text-muted-foreground">
             <div className="p-3 bg-muted/40 rounded-lg border border-border">
               <span className="block text-muted-foreground mb-1">رابط الخادم:</span>
               <span className="text-primary">http://localhost:8000/api/health</span>

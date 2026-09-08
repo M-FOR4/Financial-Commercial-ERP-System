@@ -1,17 +1,16 @@
 // ═══════════════════════════════════════
-//  FORMATTING UTILITIES
-//  Standardized date, currency, and number formatting for Arabic/Libyan locale
+//  FORMATTING UTILITIES (CENTRAL SOURCE OF TRUTH)
+//  Standardized date, currency, and number formatting for Libyan ERP
 // ═══════════════════════════════════════
 
 /**
- * Format date in Arabic locale (YYYY/MM/DD)
- * Handles both Date objects and ISO date strings
+ * Format date in Arabic standard (YYYY/MM/DD)
+ * Handles Date objects, ISO strings, and null/undefined values
  */
 export const formatDate = (date: Date | string | null | undefined): string => {
   if (!date) return '—';
   
   const d = typeof date === 'string' ? new Date(date) : date;
-  
   if (isNaN(d.getTime())) return '—';
   
   const year = d.getFullYear();
@@ -22,13 +21,12 @@ export const formatDate = (date: Date | string | null | undefined): string => {
 };
 
 /**
- * Format date with time in Arabic locale (YYYY/MM/DD HH:mm)
+ * Format date with time in Arabic standard (YYYY/MM/DD HH:mm)
  */
 export const formatDateTime = (date: Date | string | null | undefined): string => {
   if (!date) return '—';
   
   const d = typeof date === 'string' ? new Date(date) : date;
-  
   if (isNaN(d.getTime())) return '—';
   
   const year = d.getFullYear();
@@ -47,7 +45,6 @@ export const formatDateForInput = (date: Date | string | null | undefined): stri
   if (!date) return '';
   
   const d = typeof date === 'string' ? new Date(date) : date;
-  
   if (isNaN(d.getTime())) return '';
   
   const year = d.getFullYear();
@@ -71,67 +68,106 @@ export const parseDateFromInput = (dateString: string): Date | null => {
 
 /**
  * Format currency in Libyan Dinar (د.ل)
- * Uses Arabic-Indic numerals option and proper formatting
+ * Standard: ',' for thousands, '.' for decimals (e.g. 252,500.00 د.ل)
  */
 export const formatCurrency = (
   amount: number | null | undefined,
-  _currency: string = 'LYD'
+  currency: string = 'د.ل',
+  decimals: number = 2
 ): string => {
-  if (amount === null || amount === undefined || isNaN(amount)) return '—';
-  
-  const formatted = new Intl.NumberFormat('ar-LY', {
-    minimumFractionDigits: 3,
-    maximumFractionDigits: 3,
-  }).format(amount);
-  
-  return `${formatted} د.ل`;
-};
-
-/**
- * Format currency with English numerals (for technical contexts)
- */
-export const formatCurrencyEN = (
-  amount: number | null | undefined,
-  _currency: string = 'LYD'
-): string => {
-  if (amount === null || amount === undefined || isNaN(amount)) return '—';
+  if (amount === null || amount === undefined || isNaN(amount)) {
+    return `0.00 ${currency}`.trim();
+  }
   
   const formatted = new Intl.NumberFormat('en-US', {
-    minimumFractionDigits: 3,
-    maximumFractionDigits: 3,
+    minimumFractionDigits: decimals,
+    maximumFractionDigits: decimals,
   }).format(amount);
   
-  return `${formatted} د.ل`;
+  return `${formatted} ${currency}`.trim();
 };
 
 /**
- * Format number with Arabic-Indic numerals
+ * Format general numeric values
+ * Standard: ',' for thousands, '.' for decimals
  */
 export const formatNumber = (
   num: number | null | undefined,
   decimals: number = 2
 ): string => {
-  if (num === null || num === undefined || isNaN(num)) return '—';
+  if (num === null || num === undefined || isNaN(num)) return '0';
   
-  return new Intl.NumberFormat('ar-LY', {
+  return new Intl.NumberFormat('en-US', {
     minimumFractionDigits: decimals,
     maximumFractionDigits: decimals,
   }).format(num);
 };
 
 /**
- * Format number with Western numerals (for technical contexts)
+ * Format stock/inventory quantities (0 to 2 decimals)
  */
-export const formatNumberEN = (
+export const formatStock = (
   num: number | null | undefined,
   decimals: number = 2
 ): string => {
-  if (num === null || num === undefined || isNaN(num)) return '—';
+  if (num === null || num === undefined || isNaN(num)) return '0';
+  
+  return new Intl.NumberFormat('en-US', {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: decimals,
+  }).format(num);
+};
+
+/**
+ * Format accounting ledger & journal entry balances (4 decimal places)
+ */
+export const formatBalance = (
+  amount: number | null | undefined,
+  decimals: number = 4
+): string => {
+  if (amount === null || amount === undefined || isNaN(amount)) return '0.0000';
   
   return new Intl.NumberFormat('en-US', {
     minimumFractionDigits: decimals,
     maximumFractionDigits: decimals,
-  }).format(num);
+  }).format(amount);
+};
+
+/**
+ * Format compact numbers for chart axes (e.g. 1.5M, 5K, or clean number)
+ */
+export function formatShortNumber(value: number): string {
+  if (value >= 1_000_000) return `${(value / 1_000_000).toFixed(1)}M`;
+  if (value >= 1_000) return `${(value / 1_000).toFixed(0)}K`;
+  return `${value}`;
+}
+
+/**
+ * Format an ISO date string (YYYY-MM-DD) as a short Arabic axis label (e.g. "5 سبتمبر")
+ */
+export function formatShortDate(dateStr: string): string {
+  if (!dateStr) return '';
+  const parts = dateStr.split('-');
+  if (parts.length < 3) return dateStr;
+  const day = parseInt(parts[2], 10);
+  const monthIdx = parseInt(parts[1], 10) - 1;
+  const ARABIC_MONTHS = ['يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو', 'يوليو', 'أغسطس', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر'];
+  return `${day} ${ARABIC_MONTHS[monthIdx] || ''}`;
+}
+
+/**
+ * Format compact numbers for chart axes (e.g. 100K, 1.5M, or clean number)
+ */
+export const formatAxisNumber = (value: number): string => {
+  if (value === null || value === undefined || isNaN(value)) return '0';
+  const abs = Math.abs(value);
+  if (abs >= 1_000_000) {
+    return `${(value / 1_000_000).toFixed(1).replace(/\.0$/, '')}M`;
+  }
+  if (abs >= 1_000) {
+    return `${(value / 1_000).toFixed(1).replace(/\.0$/, '')}K`;
+  }
+  return new Intl.NumberFormat('en-US').format(value);
 };
 
 /**
@@ -141,20 +177,19 @@ export const formatPercent = (
   value: number | null | undefined,
   decimals: number = 1
 ): string => {
-  if (value === null || value === undefined || isNaN(value)) return '—';
-  
+  if (value === null || value === undefined || isNaN(value)) return '0%';
   return `${formatNumber(value, decimals)}%`;
 };
 
 /**
- * Get today's date as YYYY-MM-DD string (for input defaults)
+ * Get today's date as YYYY-MM-DD string
  */
 export const getTodayISO = (): string => {
   return formatDateForInput(new Date());
 };
 
 /**
- * Get date range defaults (start of month to today)
+ * Get date range defaults (start of current month to today)
  */
 export const getDateRangeDefaults = (): { from: string; to: string } => {
   const today = new Date();
@@ -164,6 +199,27 @@ export const getDateRangeDefaults = (): { from: string; to: string } => {
     from: formatDateForInput(startOfMonth),
     to: formatDateForInput(today),
   };
+};
+
+/**
+ * Account Type labels in Arabic
+ */
+export const accountTypeLabelsAr: Record<string, string> = {
+  Asset: 'أصول',
+  Liability: 'خصوم',
+  Equity: 'حقوق الملكية',
+  Revenue: 'إيرادات',
+  Expense: 'مصروفات',
+};
+
+/**
+ * Account Status labels in Arabic
+ */
+export const accountStatusLabelsAr: Record<string, string> = {
+  Active: 'نشط',
+  Inactive: 'غير نشط',
+  Header: 'رئيسي',
+  Detail: 'فرعي',
 };
 
 /**

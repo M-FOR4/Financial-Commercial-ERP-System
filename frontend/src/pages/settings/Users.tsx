@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { api } from '../../services/api';
 import { useToast } from '../../components/Toast';
 import { getApiErrorMessage } from '../../utils/apiErrors';
-import { ChevronDown, ChevronUp, Shield } from 'lucide-react';
+import { ChevronDown, ChevronUp, Shield, X } from 'lucide-react';
 
 interface User {
   id: string;
@@ -425,9 +425,9 @@ export const Users: React.FC = () => {
               {users.map(user => (
                 <tr key={user.id} className="border-b border-border hover:bg-muted/50 transition-colors">
                   <td className="px-4 py-3 text-center">
-                    <span className="font-mono text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded">{shortId(user.id)}</span>
+                    <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded">{shortId(user.id)}</span>
                   </td>
-                  <td className="px-4 py-3 text-center font-mono text-sm text-foreground">{user.username}</td>
+                  <td className="px-4 py-3 text-center text-sm text-foreground">{user.username}</td>
                   <td className="px-4 py-3 text-center text-sm font-medium text-foreground">{user.fullName}</td>
                   <td className="px-4 py-3 text-center">
                     <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold border ${roleColors[user.role] || 'bg-muted text-muted-foreground border-border'}`}>
@@ -463,9 +463,12 @@ export const Users: React.FC = () => {
 
       {/* Create User Modal */}
       {showCreateModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-          <div className="bg-card border border-border text-card-foreground rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto p-6">
-            <h2 className="text-lg font-bold text-foreground mb-4">إنشاء مستخدم جديد</h2>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4">
+          <div className="bg-card border border-border text-card-foreground rounded-2xl shadow-2xl w-full max-w-2xl max-h-[calc(100vh-4rem)] overflow-y-auto p-6 relative">
+            <button type="button" onClick={() => setShowCreateModal(false)} aria-label="إغلاق" className="absolute left-4 top-4 p-1.5 text-muted-foreground hover:text-foreground opacity-70 hover:opacity-100 transition-all">
+              <X size={20} />
+            </button>
+            <h2 className="text-lg font-bold text-foreground mb-4 pl-12">إنشاء مستخدم جديد</h2>
             <div className="space-y-3 mb-4">
               <div className="grid grid-cols-2 gap-3">
                 <div>
@@ -508,9 +511,12 @@ export const Users: React.FC = () => {
 
       {/* Edit User Modal */}
       {showEditModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-          <div className="bg-card border border-border text-card-foreground rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto p-6">
-            <h2 className="text-lg font-bold text-foreground mb-4">تعديل المستخدم — {showEditModal.username}</h2>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4">
+          <div className="bg-card border border-border text-card-foreground rounded-2xl shadow-2xl w-full max-w-2xl max-h-[calc(100vh-4rem)] overflow-y-auto p-6 relative">
+            <button type="button" onClick={() => setShowEditModal(null)} aria-label="إغلاق" className="absolute left-4 top-4 p-1.5 text-muted-foreground hover:text-foreground opacity-70 hover:opacity-100 transition-all">
+              <X size={20} />
+            </button>
+            <h2 className="text-lg font-bold text-foreground mb-4 pl-12">تعديل المستخدم — {showEditModal.username}</h2>
             <div className="space-y-3 mb-4">
               <div>
                 <label className="block text-xs font-semibold text-muted-foreground mb-1">الاسم الكامل</label>
@@ -558,10 +564,13 @@ export const Users: React.FC = () => {
 
       {/* Reset Password Modal */}
       {showResetModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-          <div className="bg-card border border-border text-card-foreground rounded-2xl shadow-2xl w-full max-w-sm p-6">
-            <h2 className="text-lg font-bold text-foreground mb-2">إعادة تعيين كلمة المرور</h2>
-            <p className="text-sm text-muted-foreground mb-4">للمستخدم: <span className="font-mono text-foreground">{showResetModal.username}</span></p>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4">
+          <div className="bg-card border border-border text-card-foreground rounded-2xl shadow-2xl w-full max-w-sm p-6 max-h-[calc(100vh-4rem)] overflow-y-auto relative">
+            <button type="button" onClick={() => setShowResetModal(null)} aria-label="إغلاق" className="absolute left-4 top-4 p-1.5 text-muted-foreground hover:text-foreground opacity-70 hover:opacity-100 transition-all">
+              <X size={20} />
+            </button>
+            <h2 className="text-lg font-bold text-foreground mb-2 pl-12">إعادة تعيين كلمة المرور</h2>
+            <p className="text-sm text-muted-foreground mb-4">للمستخدم: <span className="text-foreground">{showResetModal.username}</span></p>
             <div>
               <label className="block text-xs font-semibold text-muted-foreground mb-1">كلمة المرور الجديدة</label>
               <input type="password" value={newPassword} onChange={e => setNewPassword(e.target.value)} minLength={6}

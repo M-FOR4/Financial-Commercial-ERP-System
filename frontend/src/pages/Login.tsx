@@ -44,27 +44,31 @@ export const Login: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background flex flex-col justify-center py-12 sm:px-6 lg:px-8 font-sans text-foreground">
-      <div className="relative sm:mx-auto sm:w-full sm:max-w-md">
+    <div className="min-h-screen bg-slate-900 text-slate-100 flex flex-col justify-center py-12 sm:px-6 lg:px-8 font-sans relative overflow-hidden">
+      {/* Decorative blur blobs */}
+      <div className="absolute -top-40 -right-40 h-96 w-96 rounded-full bg-primary/20 blur-3xl pointer-events-none" />
+      <div className="absolute -bottom-40 -left-40 h-96 w-96 rounded-full bg-indigo-600/20 blur-3xl pointer-events-none" />
+
+      <div className="relative sm:mx-auto sm:w-full sm:max-w-md z-10">
         {/* Brand */}
         <div className="text-center mb-8">
           <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-primary text-primary-foreground shadow-2xl shadow-primary/30 mb-4 font-black text-2xl">
             ERP
           </div>
-          <h1 className="text-3xl font-extrabold tracking-tight text-foreground">
+          <h1 className="text-3xl font-extrabold tracking-tight text-slate-100">
             نظام ERP المالي والتجاري
           </h1>
-          <p className="mt-2 text-sm text-muted-foreground">
+          <p className="mt-2 text-sm text-slate-400">
             نظام ERP المالي والتجاري — ليبيا (د.ل)
           </p>
         </div>
 
         {/* Login Card */}
-        <div className="bg-card border border-border text-card-foreground shadow-2xl rounded-2xl py-8 px-6 sm:px-10">
-          <h2 className="text-lg font-bold text-foreground mb-6 text-center">تسجيل الدخول</h2>
+        <div className="bg-slate-800/60 backdrop-blur border border-slate-700 text-slate-100 shadow-2xl rounded-2xl py-8 px-6 sm:px-10">
+          <h2 className="text-lg font-bold text-slate-100 mb-6 text-center">تسجيل الدخول</h2>
 
           {errorMsg && (
-            <div className="mb-4 p-3 bg-destructive/10 border border-destructive/30 rounded-xl text-destructive text-sm flex items-start space-x-2">
+            <div className="mb-4 p-3 bg-red-900/40 border border-red-700/60 rounded-xl text-red-300 text-sm flex items-start gap-2">
               <span className="font-bold text-lg leading-none">!</span>
               <span className="leading-relaxed">{errorMsg}</span>
             </div>
@@ -72,7 +76,7 @@ export const Login: React.FC = () => {
 
           <form className="space-y-5" onSubmit={handleSubmit}>
             <div>
-              <label className="block text-xs font-bold uppercase tracking-wider text-muted-foreground mb-2">
+              <label className="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">
                 اسم المستخدم
               </label>
               <input
@@ -83,12 +87,12 @@ export const Login: React.FC = () => {
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
                 placeholder="أدخل اسم المستخدم"
-                className="w-full px-4 py-3 bg-background border border-border rounded-xl text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring text-sm transition-all"
+                className="w-full px-4 py-3 bg-slate-950/60 border border-slate-700 rounded-xl text-slate-100 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-primary text-sm transition-all"
               />
             </div>
 
             <div>
-              <label className="block text-xs font-bold uppercase tracking-wider text-muted-foreground mb-2">
+              <label className="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">
                 كلمة المرور
               </label>
               <input
@@ -98,7 +102,7 @@ export const Login: React.FC = () => {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="أدخل كلمة المرور"
-                className="w-full px-4 py-3 bg-background border border-border rounded-xl text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring text-sm transition-all"
+                className="w-full px-4 py-3 bg-slate-950/60 border border-slate-700 rounded-xl text-slate-100 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-primary text-sm transition-all"
               />
             </div>
 
@@ -123,10 +127,10 @@ export const Login: React.FC = () => {
 
         {/* Footer */}
         <div className="mt-8 text-center">
-          <p className="text-xs text-muted-foreground">
+          <p className="text-xs text-slate-500">
             نظام ERP المالي والتجاري © 2026 — بنية LAN غير المتصلة
           </p>
-          <p className="text-[10px] text-muted-foreground/70 mt-1 font-mono">
+          <p className="text-[10px] text-slate-600 mt-1">
             مصادقة JWT محلية آمنة
           </p>
         </div>

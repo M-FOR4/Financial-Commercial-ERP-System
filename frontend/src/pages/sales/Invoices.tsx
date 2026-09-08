@@ -5,10 +5,9 @@ import {
   type CustomerDto,
 } from '../../services/salesApi';
 import { inventoryApi, type ProductDto, type WarehouseDto } from '../../services/inventoryApi';
+import { X, Loader2 } from 'lucide-react';
 
-const formatCurrency = (n: number) => new Intl.NumberFormat('en-LY', { minimumFractionDigits: 4, maximumFractionDigits: 4 }).format(n);
-const formatStock = (n: number) => new Intl.NumberFormat('en', { minimumFractionDigits: 0, maximumFractionDigits: 2 }).format(n);
-const formatDate = (s: string) => new Date(s).toLocaleDateString('en-GB');
+import { formatCurrency, formatStock, formatDate } from '../../utils/format';
 
 const statusConfig: Record<JournalEntryStatus, { bg: string; text: string; border: string; label: string }> = {
   Draft: { bg: 'bg-amber-500/15', text: 'text-amber-400', border: 'border-amber-500/30', label: 'مسودة' },
@@ -130,11 +129,24 @@ const InvoiceBuilder: React.FC<InvoiceBuilderProps> = ({ isOpen, onClose, custom
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={onClose}>
-      <div className="bg-card border border-border rounded-2xl shadow-2xl w-full max-w-4xl mx-4 max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-        <div className="px-6 py-4 border-b border-border sticky top-0 bg-card z-10">
-          <h3 className="text-lg font-bold text-foreground">فاتورة بيع جديدة</h3>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4" onClick={onClose}>
+      <div
+        className="bg-card border border-border rounded-2xl shadow-2xl w-full max-w-4xl max-h-[calc(100vh-4rem)] overflow-y-auto overflow-x-hidden"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Header — sticky, full title, absolute close on the left (RTL) */}
+        <div className="sticky top-0 z-10 px-6 py-4 border-b border-border bg-card">
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="إغلاق"
+            className="absolute left-4 top-1/2 -translate-y-1/2 p-1.5 text-muted-foreground hover:text-foreground opacity-70 hover:opacity-100 transition-all"
+          >
+            <X size={20} />
+          </button>
+          <h3 className="text-xl font-bold text-foreground pr-8">فاتورة بيع جديدة</h3>
         </div>
+
         <form onSubmit={handleSubmit} className="p-6 space-y-5">
           {error && <div className="p-3 bg-destructive/10 border border-destructive/30 rounded-lg text-destructive text-sm">{error}</div>}
           {stockWarnings.length > 0 && (
@@ -144,53 +156,55 @@ const InvoiceBuilder: React.FC<InvoiceBuilderProps> = ({ isOpen, onClose, custom
             </div>
           )}
 
-          {/* Row 1: Customer, Warehouse, Payment Type */}
-          <div className="grid grid-cols-3 gap-4">
-            <div>
+          {/* Row 1: Customer, Warehouse, Payment Type — responsive 1/2/3 columns */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="min-w-0">
               <label className="block text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1.5">العميل *</label>
               <select required value={customerId} onChange={(e) => setCustomerId(e.target.value)}
-                className="w-full px-4 py-2.5 bg-input border-border rounded-lg text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring">
+                className="w-full h-9 px-3 py-1 bg-input border border-border rounded-md text-foreground text-sm focus:outline-none focus:ring-1 focus:ring-ring">
                 <option value="">اختر العميل...</option>
                 {customers.filter(c => c.isActive).map(c => <option key={c.id} value={c.id}>{c.code} — {c.name}</option>)}
               </select>
               {selectedCustomer && (
-                <p className="text-[10px] text-muted-foreground mt-1">الحساب المحاسبي: <span className="font-mono text-foreground">{selectedCustomer.code}</span> — الرصيد: <span className={`font-mono ${selectedCustomer.balance > 0 ? 'text-amber-500' : 'text-muted-foreground'}`}>{formatCurrency(selectedCustomer.balance)}</span></p>
+                <p className="text-[10px] text-muted-foreground mt-1 truncate">الحساب المحاسبي: <span className="text-foreground">{selectedCustomer.code}</span> — الرصيد: <span className={`${selectedCustomer.balance > 0 ? 'text-amber-500' : 'text-muted-foreground'}`}>{formatCurrency(selectedCustomer.balance)}</span></p>
               )}
             </div>
-            <div>
+            <div className="min-w-0">
               <label className="block text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1.5">المستودع *</label>
               <select required value={warehouseId} onChange={(e) => setWarehouseId(e.target.value)}
-                className="w-full px-4 py-2.5 bg-input border-border rounded-lg text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring">
+                className="w-full h-9 px-3 py-1 bg-input border border-border rounded-md text-foreground text-sm focus:outline-none focus:ring-1 focus:ring-ring">
                 <option value="">اختر المستودع...</option>
                 {warehouses.filter(w => w.isActive).map(w => <option key={w.id} value={w.id}>{w.code} — {w.name}</option>)}
               </select>
             </div>
-            <div>
+            <div className="min-w-0">
               <label className="block text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1.5">نوع الدفع *</label>
               <div className="flex gap-2">
                 <button type="button" onClick={() => setPaymentType('Credit')}
-                  className={`flex-1 px-4 py-2.5 text-sm font-semibold rounded-lg border transition-colors ${paymentType === 'Credit' ? 'bg-primary text-primary-foreground border-primary' : 'bg-muted text-muted-foreground border-border hover:text-foreground'}`}>
+                  className={`flex-1 h-9 px-3 text-sm font-semibold rounded-md border transition-colors ${paymentType === 'Credit' ? 'bg-primary text-primary-foreground border-primary' : 'bg-muted text-muted-foreground border-border hover:text-foreground'}`}>
                   آجل (Credit)
                 </button>
                 <button type="button" onClick={() => setPaymentType('Cash')}
-                  className={`flex-1 px-4 py-2.5 text-sm font-semibold rounded-lg border transition-colors ${paymentType === 'Cash' ? 'bg-emerald-600 text-white border-emerald-500' : 'bg-muted text-muted-foreground border-border hover:text-foreground'}`}>
+                  className={`flex-1 h-9 px-3 text-sm font-semibold rounded-md border transition-colors ${paymentType === 'Cash' ? 'bg-emerald-600 text-white border-emerald-500' : 'bg-muted text-muted-foreground border-border hover:text-foreground'}`}>
                   نقدي (Cash)
                 </button>
               </div>
-              <p className="text-[10px] text-muted-foreground mt-1">
+              <p className="text-[10px] text-muted-foreground mt-1 truncate">
                 {paymentType === 'Cash' ? 'الحساب المقابل = الخزينة/الصندوق' : `الحساب المقابل = حساب العميل (${selectedCustomer?.code || '—'})`}
               </p>
             </div>
           </div>
 
-          {/* Line Items */}
+          {/* Line Items — responsive: table grid on md+, stacked cards on mobile */}
           <div>
             <div className="flex items-center justify-between mb-3">
               <h4 className="text-sm font-semibold text-foreground">بنود الفاتورة</h4>
               <button type="button" onClick={addLine} className="px-3 py-1.5 text-xs font-semibold text-primary hover:text-primary/80 bg-primary/10 border border-primary/30 rounded-lg">+ إضافة بند</button>
             </div>
-            <div className="grid grid-cols-[1fr_80px_100px_100px_1fr_40px] gap-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground px-1 mb-2">
-              <span>الصنف</span><span className="text-right">الكمية</span><span className="text-right">السعر</span><span className="text-right">الإجمالي</span><span>ملاحظات</span><span />
+
+            {/* Desktop grid — column ratios keep labels/numbers clear of the action button */}
+            <div className="hidden md:grid grid-cols-[minmax(0,1fr)_90px_110px_130px_minmax(140px,1fr)_40px] gap-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground px-1 mb-2">
+              <span>المادة / البند</span><span className="text-center">الكمية</span><span className="text-center">سعر الوحدة</span><span className="text-center">إجمالي البند</span><span className="text-center">ملاحظات / تخصيص</span><span />
             </div>
             <div className="space-y-2">
               {lines.map((line, idx) => {
@@ -198,62 +212,64 @@ const InvoiceBuilder: React.FC<InvoiceBuilderProps> = ({ isOpen, onClose, custom
                 const product = leafProducts.find(p => p.id === line.productId);
                 const isOverStock = product && parseFloat(line.quantity) > product.currentStock;
                 return (
-                  <div key={idx} className="grid grid-cols-[1fr_80px_100px_100px_1fr_40px] gap-2">
+                  <div key={idx} className="md:grid md:grid-cols-[minmax(0,1fr)_90px_110px_130px_minmax(140px,1fr)_40px] md:gap-2 md:items-center md:bg-transparent space-y-2 md:space-y-0 bg-muted/30 md:bg-transparent rounded-lg p-3 md:p-0">
                     <select required value={line.productId} onChange={(e) => handleProductSelect(idx, e.target.value)}
-                      className="px-3 py-2 bg-input border-border rounded-lg text-foreground text-sm truncate focus:outline-none focus:ring-2 focus:ring-ring">
+                      className="w-full h-9 px-3 py-1 bg-input border border-border rounded-md text-foreground text-sm truncate focus:outline-none focus:ring-1 focus:ring-ring min-w-0">
                       <option value="">اختر...</option>
                       {leafProducts.map(p => <option key={p.id} value={p.id}>{p.sku} — {p.name} (المخزون: {formatStock(p.currentStock)})</option>)}
                     </select>
                     <div className="relative">
                       <input type="number" min="0.0001" step="0.0001" value={line.quantity} onChange={(e) => handleQuantityChange(idx, e.target.value)}
-                        className={`w-full px-3 py-2 bg-input border rounded-lg text-foreground text-sm font-mono text-right focus:outline-none focus:ring-2 focus:ring-ring ${isOverStock ? 'border-amber-500 ring-amber-500/30' : 'border-border'}`} />
+                        className={`w-full h-9 px-3 py-1 bg-input border rounded-md text-foreground text-sm text-right focus:outline-none focus:ring-1 focus:ring-ring ${isOverStock ? 'border-amber-500 ring-amber-500/30' : 'border-border'}`} />
                       {isOverStock && <span className="absolute -top-1 -right-1 text-amber-500 text-xs">⚠</span>}
                     </div>
                     <input type="number" min="0" step="0.0001" value={line.unitPrice} onChange={(e) => updateLine(idx, 'unitPrice', e.target.value)}
-                      className="px-3 py-2 bg-input border-border rounded-lg text-foreground text-sm font-mono text-right focus:outline-none focus:ring-2 focus:ring-ring" />
-                    <div className="px-3 py-2 text-sm font-mono text-right text-foreground">{formatCurrency(lineTotal)}</div>
+                      className="w-full h-9 px-3 py-1 bg-input border border-border rounded-md text-foreground text-sm text-right focus:outline-none focus:ring-1 focus:ring-ring" />
+                    <div className="h-9 px-3 py-1 flex items-center justify-end text-sm font-semibold text-foreground tabular-nums whitespace-nowrap overflow-hidden">{formatCurrency(lineTotal)}</div>
                     <input type="text" value={line.notes} onChange={(e) => updateLine(idx, 'notes', e.target.value)} placeholder="اختياري..."
-                      className="px-3 py-2 bg-input border-border rounded-lg text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
-                    <button type="button" onClick={() => removeLine(idx)} disabled={lines.length <= 1}
-                      className="w-9 h-9 flex items-center justify-center text-destructive hover:text-destructive/80 hover:bg-destructive/10 rounded-lg disabled:opacity-30">✕</button>
+                      className="w-full h-9 px-3 py-1 bg-input border border-border rounded-md text-foreground text-sm placeholder-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring min-w-0" />
+                    <button type="button" onClick={() => removeLine(idx)} disabled={lines.length <= 1} aria-label="حذف البند"
+                      className="w-9 h-9 mx-auto md:mx-0 flex items-center justify-center text-destructive hover:text-destructive/80 hover:bg-destructive/10 rounded-lg transition-colors disabled:opacity-30">✕</button>
                   </div>
                 );
               })}
             </div>
           </div>
 
-          {/* Discount, Tax, Notes, Total */}
-          <div className="grid grid-cols-4 gap-4">
+          {/* Discount, Tax, Notes, Total — responsive 1/2/4 columns */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             <div>
               <label className="block text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1.5">الخصم (د.ل)</label>
               <input type="number" min="0" step="0.0001" value={discountAmount} onChange={(e) => setDiscountAmount(e.target.value)}
-                className="w-full px-4 py-2.5 bg-input border-border rounded-lg text-foreground text-sm font-mono focus:outline-none focus:ring-2 focus:ring-ring" />
+                className="w-full h-9 px-3 py-1 bg-input border border-border rounded-md text-foreground text-sm focus:outline-none focus:ring-1 focus:ring-ring" />
             </div>
             <div>
               <label className="block text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1.5">ضريبة (%)</label>
               <input type="number" min="0" max="100" step="0.01" value={taxRate} onChange={(e) => setTaxRate(e.target.value)}
-                className="w-full px-4 py-2.5 bg-input border-border rounded-lg text-foreground text-sm font-mono focus:outline-none focus:ring-2 focus:ring-ring" />
+                className="w-full h-9 px-3 py-1 bg-input border border-border rounded-md text-foreground text-sm focus:outline-none focus:ring-1 focus:ring-ring" />
             </div>
             <div>
               <label className="block text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1.5">ملاحظات</label>
               <input type="text" value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="اختياري..."
-                className="w-full px-4 py-2.5 bg-input border-border rounded-lg text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
+                className="w-full h-9 px-3 py-1 bg-input border border-border rounded-md text-foreground text-sm placeholder-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring" />
             </div>
             <div className="flex flex-col justify-end">
               <div className="text-right space-y-1">
-                <div className="flex justify-between text-xs text-muted-foreground"><span>المجموع الفرعي</span><span className="font-mono">{formatCurrency(subTotal)}</span></div>
-                {taxAmount > 0 && <div className="flex justify-between text-xs text-muted-foreground"><span>الضريبة</span><span className="font-mono">{formatCurrency(taxAmount)}</span></div>}
-                {parseFloat(discountAmount) > 0 && <div className="flex justify-between text-xs text-muted-foreground"><span>الخصم</span><span className="font-mono text-destructive">-{formatCurrency(parseFloat(discountAmount))}</span></div>}
-                <div className="flex justify-between text-sm font-bold border-t border-border pt-1"><span className="text-foreground">الإجمالي</span><span className="font-mono text-emerald-500">{formatCurrency(totalAmount)}</span></div>
+                <div className="flex justify-between text-xs text-muted-foreground"><span>المجموع الفرعي</span><span className="font-semibold tabular-nums">{formatCurrency(subTotal)}</span></div>
+                {taxAmount > 0 && <div className="flex justify-between text-xs text-muted-foreground"><span>الضريبة</span><span className="font-semibold tabular-nums">{formatCurrency(taxAmount)}</span></div>}
+                {parseFloat(discountAmount) > 0 && <div className="flex justify-between text-xs text-muted-foreground"><span>الخصم</span><span className="text-destructive tabular-nums">-{formatCurrency(parseFloat(discountAmount))}</span></div>}
+                <div className="flex justify-between text-sm font-bold border-t border-border pt-1"><span className="text-foreground">الإجمالي</span><span className="text-emerald-600 dark:text-emerald-400 font-bold text-lg tabular-nums">{formatCurrency(totalAmount)}</span></div>
               </div>
             </div>
           </div>
 
-          <div className="flex gap-3 pt-2 border-t border-border">
+          {/* Action bar — cancel + submit bottom-left, Loader2 while submitting */}
+          <div className="flex flex-wrap gap-3 justify-end pt-3 border-t border-border">
             <button type="button" onClick={() => { resetForm(); onClose(); }}
-              className="flex-1 px-4 py-2.5 text-sm font-semibold text-foreground bg-muted hover:bg-accent border border-border rounded-lg transition-colors">إلغاء</button>
+              className="px-4 h-9 text-sm font-semibold text-foreground bg-muted hover:bg-accent border border-border rounded-md transition-colors">إلغاء</button>
             <button type="submit" disabled={createMutation.isPending}
-              className="flex-1 px-4 py-2.5 text-sm font-semibold text-primary-foreground bg-primary hover:bg-primary/90 rounded-lg transition-colors disabled:opacity-50">
+              className="px-4 h-9 text-sm font-semibold text-primary-foreground bg-primary hover:bg-primary/90 rounded-md transition-all active:scale-[0.98] disabled:opacity-50 disabled:active:scale-100 flex items-center gap-2">
+              {createMutation.isPending && <Loader2 size={16} className="animate-spin" />}
               {createMutation.isPending ? 'جاري الإنشاء...' : 'إنشاء الفاتورة'}
             </button>
           </div>
@@ -341,11 +357,11 @@ export const Invoices: React.FC = () => {
                   const sc = statusConfig[inv.status];
                   return (
                     <tr key={inv.id} className="hover:bg-muted/30 cursor-pointer transition-colors" onClick={() => setSelectedInvoice(inv)}>
-                      <td className="px-5 py-3 text-center font-mono font-semibold text-primary">{inv.invoiceNumber}</td>
-                      <td className="px-5 py-3 text-center font-mono text-muted-foreground">{formatDate(inv.invoiceDate)}</td>
+                      <td className="px-5 py-3 text-center font-semibold text-primary">{inv.invoiceNumber}</td>
+                      <td className="px-5 py-3 text-center text-muted-foreground">{formatDate(inv.invoiceDate)}</td>
                       <td className="px-5 py-3 text-center text-foreground">{inv.customerCode} — {inv.customerName}</td>
                       <td className="px-5 py-3 text-center"><span className={`px-2.5 py-0.5 text-[10px] font-semibold rounded-full border ${sc.bg} ${sc.text} ${sc.border}`}>{inv.statusName}</span></td>
-                      <td className="px-5 py-3 text-center font-mono font-semibold text-emerald-500">{formatCurrency(inv.totalAmount)}</td>
+                      <td className="px-5 py-3 text-center font-semibold text-emerald-500">{formatCurrency(inv.totalAmount)}</td>
                       <td className="px-5 py-3 text-center" onClick={(e) => e.stopPropagation()}>
                         {inv.status === 'Draft' && (
                           <div className="flex gap-1 justify-center">
@@ -365,19 +381,19 @@ export const Invoices: React.FC = () => {
 
       {/* Detail Drawer */}
       {selectedInvoice && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={() => setSelectedInvoice(null)}>
-          <div className="bg-card border border-border rounded-2xl shadow-2xl w-full max-w-2xl mx-4 max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-            <div className="px-6 py-4 border-b border-border sticky top-0 bg-card z-10 flex items-center justify-between">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4" onClick={() => setSelectedInvoice(null)}>
+          <div className="bg-card border border-border rounded-2xl shadow-2xl w-full max-w-2xl mx-4 max-h-[calc(100vh-4rem)] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+            <div className="px-6 py-4 border-b border-border sticky top-0 bg-card z-10 relative flex items-center justify-between pl-14">
               <div>
                 <h3 className="text-lg font-bold text-foreground">{selectedInvoice.invoiceNumber}</h3>
                 <span className="text-xs text-muted-foreground">{formatDate(selectedInvoice.invoiceDate)} — {selectedInvoice.customerName}</span>
               </div>
-              <div className="flex items-center gap-3">
-                <span className={`px-3 py-1 text-xs font-semibold rounded-full border ${statusConfig[selectedInvoice.status].bg} ${statusConfig[selectedInvoice.status].text} ${statusConfig[selectedInvoice.status].border}`}>
-                  {selectedInvoice.statusName}
-                </span>
-                <button onClick={() => setSelectedInvoice(null)} className="text-muted-foreground hover:text-foreground text-xl">&times;</button>
-              </div>
+              <span className={`px-3 py-1 text-xs font-semibold rounded-full border ${statusConfig[selectedInvoice.status].bg} ${statusConfig[selectedInvoice.status].text} ${statusConfig[selectedInvoice.status].border}`}>
+                {selectedInvoice.statusName}
+              </span>
+              <button type="button" onClick={() => setSelectedInvoice(null)} aria-label="إغلاق" className="absolute left-4 top-1/2 -translate-y-1/2 p-1.5 text-muted-foreground hover:text-foreground opacity-70 hover:opacity-100 transition-all">
+                <X size={20} />
+              </button>
             </div>
             <div className="p-6 space-y-4">
               <div className="border border-border rounded-lg overflow-hidden">
@@ -388,16 +404,16 @@ export const Invoices: React.FC = () => {
                   <tbody className="divide-y divide-border/50">
                     {selectedInvoice.lines.map(l => (
                       <tr key={l.id} className="hover:bg-muted/30">
-                        <td className="px-4 py-2.5 text-center"><span className="font-mono text-xs text-muted-foreground mr-1">{l.productSKU}</span><span className="text-foreground">{l.productName}</span></td>
-                        <td className="px-4 py-2.5 text-center font-mono">{formatStock(l.quantity)}</td>
-                        <td className="px-4 py-2.5 text-center font-mono">{formatCurrency(l.unitPrice)}</td>
-                        <td className="px-4 py-2.5 text-center font-mono font-semibold text-foreground">{formatCurrency(l.totalPrice)}</td>
+                        <td className="px-4 py-2.5 text-center"><span className="text-xs text-muted-foreground mr-1">{l.productSKU}</span><span className="text-foreground">{l.productName}</span></td>
+                        <td className="px-4 py-2.5 text-center">{formatStock(l.quantity)}</td>
+                        <td className="px-4 py-2.5 text-center">{formatCurrency(l.unitPrice)}</td>
+                        <td className="px-4 py-2.5 text-center font-semibold text-foreground">{formatCurrency(l.totalPrice)}</td>
                       </tr>
                     ))}
                   </tbody>
                   <tfoot><tr className="bg-muted/40 font-bold">
                     <td className="px-4 py-2.5 text-center text-muted-foreground" colSpan={3}>الإجمالي</td>
-                    <td className="px-4 py-2.5 text-center font-mono text-emerald-500">{formatCurrency(selectedInvoice.totalAmount)}</td>
+                    <td className="px-4 py-2.5 text-center text-emerald-500">{formatCurrency(selectedInvoice.totalAmount)}</td>
                   </tr></tfoot>
                 </table>
               </div>
