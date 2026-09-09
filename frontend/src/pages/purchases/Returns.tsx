@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { purchasesApi, type PurchaseReturnDto, type JournalEntryStatus, type PurchaseInvoiceDto } from '../../services/purchasesApi';
 import { X } from 'lucide-react';
+import { StatusBadge } from '../../components/StatusBadge';
 import { formatCurrency, formatStock, formatDate } from '../../utils/format';
 
 const sc: Record<JournalEntryStatus, { bg: string; text: string; border: string; label: string }> = {
@@ -118,7 +119,7 @@ export const Returns: React.FC = () => {
                   <td className="px-5 py-3 text-right text-muted-foreground">{formatDate(ret.returnDate)}</td>
                   <td className="px-5 py-3 text-right text-muted-foreground">{ret.originalInvoiceNumber}</td>
                   <td className="px-5 py-3 text-right text-foreground">{ret.supplierName}</td>
-                  <td className="px-5 py-3 text-center"><span className={`px-2.5 py-0.5 text-[10px] font-semibold rounded-full border ${sc[ret.status].bg} ${sc[ret.status].text} ${sc[ret.status].border}`}>{sc[ret.status].label}</span></td>
+                  <td className="px-5 py-3 text-center"><StatusBadge status={ret.status} /></td>
                   <td className="px-5 py-3 text-left font-semibold text-amber-500">{formatCurrency(ret.totalAmount)}</td>
                   <td className="px-5 py-3 text-center" onClick={(e) => e.stopPropagation()}>
                     {ret.status === 'Draft' && <button onClick={() => postMut.mutate(ret.id)} className="px-2.5 py-1 text-xs font-semibold text-emerald-500 bg-emerald-500/10 border border-emerald-500/30 rounded-lg hover:bg-emerald-500/20">ترحيل</button>}
@@ -134,7 +135,7 @@ export const Returns: React.FC = () => {
           <div className="bg-card border border-border rounded-2xl shadow-2xl w-full max-w-2xl mx-4 max-h-[calc(100vh-4rem)] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
             <div className="px-6 py-4 border-b border-border sticky top-0 bg-card z-10 relative flex items-center justify-between pl-14">
               <div><h3 className="text-lg font-bold text-foreground">{selected.returnNumber}</h3><span className="text-xs text-muted-foreground">الأصلي: {selected.originalInvoiceNumber} — {selected.supplierName}</span></div>
-              <span className={`px-3 py-1 text-xs font-semibold rounded-full border ${sc[selected.status].bg} ${sc[selected.status].text} ${sc[selected.status].border}`}>{sc[selected.status].label}</span>
+              <StatusBadge status={selected.status} className="px-3 py-1 text-xs" />
               <button type="button" onClick={() => setSelected(null)} aria-label="إغلاق" className="absolute left-4 top-1/2 -translate-y-1/2 p-1.5 text-muted-foreground hover:text-foreground opacity-70 hover:opacity-100 transition-all">
                 <X size={20} />
               </button>

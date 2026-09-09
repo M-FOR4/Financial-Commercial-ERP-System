@@ -26,6 +26,7 @@ import {
   ChevronDown,
   ChevronUp,
   Menu,
+  Settings,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 
@@ -86,6 +87,7 @@ const navigation: NavGroup[] = [
     // A parent group is visible if the user holds AT LEAST ONE child permission
     // (no group-level gate), so e.g. a user with only audit-log access still sees it.
     items: [
+      { type: 'item', to: '/settings/general', label: 'إعدادات المنظومة', icon: Settings, permission: 'Admin.Settings.View', end: true },
       { type: 'item', to: '/settings/users', label: 'إدارة المستخدمين', icon: UserCheck, permission: 'Admin.User.View', end: true },
       { type: 'item', to: '/settings/audit-logs', label: 'سجل الحركات', icon: ShieldAlert, permission: 'Reports.Reports.ViewAccountingReports', end: true },
     ],

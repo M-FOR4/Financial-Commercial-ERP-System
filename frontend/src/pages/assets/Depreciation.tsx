@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { fixedAssetsApi, type DepreciationEntryResponse, type DepreciationRunResponse } from '../../services/fixedAssetsApi';
+import { showWarning, showError } from '../../lib/toast';
 import { formatCurrency, formatDate } from '../../utils/format';
 
 export const Depreciation: React.FC = () => {
@@ -25,14 +26,17 @@ export const Depreciation: React.FC = () => {
   };
 
   const handleRunDepreciation = async () => {
-    if (periodStart >= periodEnd) { alert('يجب أن يكون تاريخ البداية قبل تاريخ النهاية.'); return; }
+    if (periodStart >= periodEnd) {
+      showWarning('يجب أن يكون تاريخ البداية قبل تاريخ النهاية.');
+      return;
+    }
     setRunning(true);
     try {
       const result = await fixedAssetsApi.runDepreciation({ periodStartDate: periodStart, periodEndDate: periodEnd });
       setLastResult(result);
       await loadEntries();
     } catch (err: any) {
-      alert(err.response?.data?.error || 'فشل في تشغيل الإهلاك.');
+      showError('تعذر تشغيل الإهلاك', err.response?.data?.error || 'فشل في تشغيل الإهلاك.');
     } finally {
       setRunning(false);
     }

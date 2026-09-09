@@ -1,16 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { treasuryApi, transferVoucherApi,
-  type Treasury, type TransferVoucher, type TransferVoucherRequest, type DocumentStatus,
+  type Treasury, type TransferVoucher, type TransferVoucherRequest,
 } from '../../services/cashBankApi';
 import { useToast } from '../../components/Toast';
+import { ConfirmDialog } from '../../components/ConfirmDialog';
+import { StatusBadge } from '../../components/StatusBadge';
 import { getApiErrorMessage } from '../../utils/apiErrors';
 import { formatCurrency } from '../../utils/format';
-
-const statusConfig: Record<DocumentStatus, { bg: string; text: string; border: string; label: string }> = {
-  Draft: { bg: 'bg-amber-950', text: 'text-amber-400', border: 'border-amber-800/50', label: 'مسودة' },
-  Posted: { bg: 'bg-emerald-950', text: 'text-emerald-400', border: 'border-emerald-800/50', label: 'مرحل' },
-  Cancelled: { bg: 'bg-red-950', text: 'text-red-400', border: 'border-red-800/50', label: 'ملغي' },
-};
 
 export const Transfers: React.FC = () => {
   const { addToast } = useToast();
@@ -19,6 +15,7 @@ export const Transfers: React.FC = () => {
   const [showForm, setShowForm] = useState(false);
   const [treasuries, setTreasuries] = useState<Treasury[]>([]);
   const [error, setError] = useState('');
+  const [cancelTarget, setCancelTarget] = useState<string | null>(null);
   const [form, setForm] = useState<TransferVoucherRequest>({
     date: new Date().toISOString().split('T')[0],
     fromTreasuryId: '',
@@ -59,7 +56,6 @@ export const Transfers: React.FC = () => {
   };
 
   const handleCancel = async (id: string) => {
-    if (!window.confirm('هل تريد إلغاء هذا التحويل؟')) return;
     try {
       await transferVoucherApi.cancel(id);
       addToast('success', 'تم إلغاء التحويل بنجاح.');
@@ -159,7 +155,6 @@ export const Transfers: React.FC = () => {
               {transfers.length === 0 ? (
                 <tr><td colSpan={8} className="px-4 py-12 text-center text-muted-foreground">لا توجد تحويلات مسجلة بعد.</td></tr>
               ) : transfers.map(transfer => {
-                const sc = statusConfig[transfer.status];
                 return (
                   <tr key={transfer.id} className="border-b border-border/50 hover:bg-muted/30">
                     <td className="px-4 py-3 text-sm text-foreground">{transfer.transferNumber}</td>
@@ -168,18 +163,16 @@ export const Transfers: React.FC = () => {
                     <td className="px-4 py-3 text-center text-muted-foreground">→</td>
                     <td className="px-4 py-3 text-sm text-emerald-400">{transfer.toTreasuryName}</td>
                     <td className="px-4 py-3 text-right text-sm font-bold text-foreground">{formatCurrency(transfer.amount)}</td>
-                    <td className="px-4 py-3 text-center">
-                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold ${sc.bg} ${sc.text} border ${sc.border}`}>{sc.label}</span>
-                    </td>
+                    <td className="px-4 py-3 text-center"><StatusBadge status={transfer.status} /></td>
                     <td className="px-4 py-3 text-center">
                       {transfer.status === 'Draft' && (
                         <div className="flex items-center justify-center gap-2">
                           <button onClick={() => handlePost(transfer.id)} className="px-3 py-1 text-xs font-medium text-emerald-400 hover:text-emerald-300 bg-emerald-950/50 border border-emerald-800/40 rounded transition-colors">ترحيل</button>
-                          <button onClick={() => handleCancel(transfer.id)} className="px-3 py-1 text-xs font-medium text-red-400 hover:text-red-300 bg-red-950/50 border border-red-800/40 rounded transition-colors">إلغاء</button>
+                          <button onClick={() => setCancelTarget(transfer.id)} className="px-3 py-1 text-xs font-medium text-red-400 hover:text-red-300 bg-red-950/50 border border-red-800/40 rounded transition-colors">إلغاء</button>
                         </div>
                       )}
                       {transfer.status === 'Posted' && (
-                        <button onClick={() => handleCancel(transfer.id)} className="px-3 py-1 text-xs font-medium text-red-400 hover:text-red-300 bg-red-950/50 border border-red-800/40 rounded transition-colors">إلغاء</button>
+                        <button onClick={() => setCancelTarget(transfer.id)} className="px-3 py-1 text-xs font-medium text-red-400 hover:text-red-300 bg-red-950/50 border border-red-800/40 rounded transition-colors">إلغاء</button>
                       )}
                     </td>
                   </tr>
@@ -189,6 +182,16 @@ export const Transfers: React.FC = () => {
           </table>
         </div>
       </div>
+
+      <ConfirmDialog
+        open={cancelTarget !== null}
+        title="تأكيد إلغاء التحويل"
+        message="هل تريد إلغاء هذا التحويل؟ سيتم عكس حركة الأموال بين الخزينتين."
+        confirmLabel="تأكيد الإلغاء"
+        isPending={false}
+        onConfirm={() => { const id = cancelTarget; setCancelTarget(null); if (id) handleCancel(id); }}
+        onCancel={() => setCancelTarget(null)}
+      />
     </div>
   );
 };

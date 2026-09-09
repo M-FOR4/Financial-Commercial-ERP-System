@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
 import { X, CheckCircle, AlertCircle, Info } from 'lucide-react';
+import { bindToastStore } from '../lib/toast';
 
 // ═══════════════════════════════════════
 //  TOAST TYPES & CONTEXT
@@ -37,6 +38,9 @@ export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const removeToast = useCallback((id: string) => {
     setToasts(prev => prev.filter(t => t.id !== id));
   }, []);
+
+  // Keep the imperative store (lib/toast.ts) pointed at the live setter
+  bindToastStore(addToast);
 
   return (
     <ToastContext.Provider value={{ toasts, addToast, removeToast }}>

@@ -100,8 +100,9 @@ export const Treasuries: React.FC = () => {
                   <td className="px-4 py-3 text-sm text-foreground">{treasury.code}</td>
                   <td className="px-4 py-3 text-sm font-medium text-foreground">{treasury.name}</td>
                   <td className="px-4 py-3">
-                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold ${treasury.type === 'Cash' ? 'bg-emerald-950 text-emerald-400 border border-emerald-800/50' : 'bg-blue-950 text-blue-400 border border-blue-800/50'}`}>
-                      {treasury.type === 'Cash' ? '💵 نقدي' : '🏦 بنك'}
+                    <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold border ${treasury.type === 'Cash' ? 'bg-emerald-500/15 text-emerald-700 border-emerald-200 dark:text-emerald-400 dark:border-emerald-800' : 'bg-sky-500/15 text-sky-700 border-sky-200 dark:text-sky-400 dark:border-sky-800'}`}>
+                      <span className="h-2 w-2 rounded-full bg-current shrink-0" aria-hidden="true" />
+                      {treasury.type === 'Cash' ? 'نقدي' : 'بنك'}
                     </span>
                   </td>
                   <td className="px-4 py-3 text-sm text-muted-foreground">{treasury.accountName}</td>
@@ -109,7 +110,7 @@ export const Treasuries: React.FC = () => {
                   <td className="px-4 py-3 text-sm text-muted-foreground">{treasury.currency}</td>
                   <td className="px-4 py-3 text-center">
                     <button onClick={() => handleOpenModal(treasury)}
-                      className="px-3 py-1 text-xs font-medium text-indigo-400 hover:text-indigo-300 bg-indigo-950/50 border border-indigo-800/40 rounded transition-colors">تعديل</button>
+                      className="px-3 py-1 text-xs font-medium text-foreground hover:text-foreground bg-muted hover:bg-accent border border-border rounded transition-colors active:scale-[0.98]">تعديل</button>
                   </td>
                 </tr>
               ))}

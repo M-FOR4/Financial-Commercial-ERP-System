@@ -7,14 +7,10 @@ import {
 import { api } from '../../services/api';
 import type { AccountDto } from '../../services/accountingApi';
 import { useToast } from '../../components/Toast';
+import { ConfirmDialog } from '../../components/ConfirmDialog';
+import { StatusBadge } from '../../components/StatusBadge';
 import { getApiErrorMessage } from '../../utils/apiErrors';
 import { formatCurrency } from '../../utils/format';
-
-const statusConfig: Record<DocumentStatus, { bg: string; text: string; border: string; label: string }> = {
-  Draft: { bg: 'bg-amber-950', text: 'text-amber-400', border: 'border-amber-800/50', label: 'مسودة' },
-  Posted: { bg: 'bg-emerald-950', text: 'text-emerald-400', border: 'border-emerald-800/50', label: 'مرحل' },
-  Cancelled: { bg: 'bg-red-950', text: 'text-red-400', border: 'border-red-800/50', label: 'ملغي' },
-};
 
 export const CashVouchers: React.FC = () => {
   const { addToast } = useToast();
@@ -26,6 +22,7 @@ export const CashVouchers: React.FC = () => {
   const [treasuries, setTreasuries] = useState<Treasury[]>([]);
   const [accounts, setAccounts] = useState<AccountDto[]>([]);
   const [error, setError] = useState('');
+  const [cancelTarget, setCancelTarget] = useState<string | null>(null);
   const [form, setForm] = useState<CashVoucherRequest>({
     voucherType: 'Receipt',
     date: new Date().toISOString().split('T')[0],
@@ -75,7 +72,6 @@ export const CashVouchers: React.FC = () => {
   };
 
   const handleCancel = async (id: string) => {
-    if (!window.confirm('هل أنت متأكد من إلغاء هذا السند؟')) return;
     try {
       await cashVoucherApi.cancel(id);
       addToast('success', 'تم إلغاء السند بنجاح.');
@@ -190,31 +186,28 @@ export const CashVouchers: React.FC = () => {
               {filtered.length === 0 ? (
                 <tr><td colSpan={8} className="px-4 py-12 text-center text-muted-foreground">لا توجد سندات قبض/صرف.</td></tr>
               ) : filtered.map(voucher => {
-                const sc = statusConfig[voucher.status];
                 return (
                   <tr key={voucher.id} className="border-b border-border/50 hover:bg-muted/30">
                     <td className="px-4 py-3 text-sm text-foreground">{voucher.voucherNumber}</td>
                     <td className="px-4 py-3">
-                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold ${voucher.voucherType === 'Receipt' ? 'bg-emerald-950 text-emerald-400 border border-emerald-800/50' : 'bg-amber-950 text-amber-400 border border-amber-800/50'}`}>
-                        {voucher.voucherType === 'Receipt' ? '↓ قبض' : '↑ صرف'}
+                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold border ${voucher.voucherType === 'Receipt' ? 'bg-emerald-500/15 text-emerald-700 border-emerald-200 dark:text-emerald-400 dark:border-emerald-800' : 'bg-amber-500/15 text-amber-700 border-amber-200 dark:text-amber-400 dark:border-amber-800'}`}>
+                        {voucher.voucherType === 'Receipt' ? 'قبض' : 'صرف'}
                       </span>
                     </td>
                     <td className="px-4 py-3 text-sm text-muted-foreground">{new Date(voucher.date).toLocaleDateString()}</td>
                     <td className="px-4 py-3 text-sm text-foreground">{voucher.treasuryName}</td>
                     <td className="px-4 py-3 text-sm text-muted-foreground max-w-[200px] truncate">{voucher.description}</td>
                     <td className={`px-4 py-3 text-right text-sm font-bold ${voucher.voucherType === 'Receipt' ? 'text-emerald-400' : 'text-red-400'}`}>{formatCurrency(voucher.amount)}</td>
-                    <td className="px-4 py-3 text-center">
-                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold ${sc.bg} ${sc.text} border ${sc.border}`}>{sc.label}</span>
-                    </td>
+                    <td className="px-4 py-3 text-center"><StatusBadge status={voucher.status} /></td>
                     <td className="px-4 py-3 text-center">
                       {voucher.status === 'Draft' && (
                         <div className="flex items-center justify-center gap-2">
                           <button onClick={() => handlePost(voucher.id)} className="px-3 py-1 text-xs font-medium text-emerald-400 hover:text-emerald-300 bg-emerald-950/50 border border-emerald-800/40 rounded transition-colors">ترحيل</button>
-                          <button onClick={() => handleCancel(voucher.id)} className="px-3 py-1 text-xs font-medium text-red-400 hover:text-red-300 bg-red-950/50 border border-red-800/40 rounded transition-colors">إلغاء</button>
+                          <button onClick={() => setCancelTarget(voucher.id)} className="px-3 py-1 text-xs font-medium text-red-400 hover:text-red-300 bg-red-950/50 border border-red-800/40 rounded transition-colors">إلغاء</button>
                         </div>
                       )}
                       {voucher.status === 'Posted' && (
-                        <button onClick={() => handleCancel(voucher.id)} className="px-3 py-1 text-xs font-medium text-red-400 hover:text-red-300 bg-red-950/50 border border-red-800/40 rounded transition-colors">إلغاء</button>
+                        <button onClick={() => setCancelTarget(voucher.id)} className="px-3 py-1 text-xs font-medium text-red-400 hover:text-red-300 bg-red-950/50 border border-red-800/40 rounded transition-colors">إلغاء</button>
                       )}
                     </td>
                   </tr>
@@ -224,6 +217,16 @@ export const CashVouchers: React.FC = () => {
           </table>
         </div>
       </div>
+
+      <ConfirmDialog
+        open={cancelTarget !== null}
+        title="تأكيد إلغاء السند"
+        message="هل أنت متأكد من إلغاء هذا السند؟ لا يمكن التراجع عن هذا الإجراء."
+        confirmLabel="تأكيد الإلغاء"
+        isPending={false}
+        onConfirm={() => { const id = cancelTarget; setCancelTarget(null); if (id) handleCancel(id); }}
+        onCancel={() => setCancelTarget(null)}
+      />
     </div>
   );
 };

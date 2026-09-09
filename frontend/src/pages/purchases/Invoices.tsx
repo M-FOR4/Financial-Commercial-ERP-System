@@ -4,6 +4,8 @@ import { purchasesApi, type PurchaseInvoiceDto, type JournalEntryStatus } from '
 import { inventoryApi } from '../../services/inventoryApi';
 import type { SupplierDto } from '../../services/purchasesApi';
 import { X, Loader2 } from 'lucide-react';
+import { ConfirmDialog } from '../../components/ConfirmDialog';
+import { StatusBadge } from '../../components/StatusBadge';
 import { formatCurrency, formatStock, formatDate } from '../../utils/format';
 
 const sc: Record<JournalEntryStatus, { bg: string; text: string; border: string; label: string }> = {
@@ -299,6 +301,7 @@ export const Invoices: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [showBuilder, setShowBuilder] = useState(false);
   const [selected, setSelected] = useState<PurchaseInvoiceDto | null>(null);
+  const [cancelTarget, setCancelTarget] = useState<PurchaseInvoiceDto | null>(null);
   const qc = useQueryClient();
 
   const { data: invoices = [], isLoading, error } = useQuery({
@@ -406,11 +409,7 @@ export const Invoices: React.FC = () => {
                     <td className="px-5 py-3 text-right text-foreground font-medium">
                       {inv.supplierCode} — {inv.supplierName}
                     </td>
-                    <td className="px-5 py-3 text-right">
-                      <span className={`px-2.5 py-0.5 text-[10px] font-semibold rounded-full border ${sc[inv.status].bg} ${sc[inv.status].text} ${sc[inv.status].border}`}>
-                        {sc[inv.status].label}
-                      </span>
-                    </td>
+                    <td className="px-5 py-3 text-right"><StatusBadge status={inv.status} /></td>
                     <td className="px-5 py-3 text-right font-semibold text-foreground">{formatCurrency(inv.subTotal)}</td>
                     <td className="px-5 py-3 text-right font-semibold text-amber-500">{inv.additionalCosts > 0 ? formatCurrency(inv.additionalCosts) : '-'}</td>
                     <td className="px-5 py-3 text-right font-bold text-emerald-600 dark:text-emerald-400">{formatCurrency(inv.totalAmount)}</td>
@@ -441,9 +440,7 @@ export const Invoices: React.FC = () => {
                   {formatDate(selected.invoiceDate)} — {selected.supplierName}
                 </span>
               </div>
-              <span className={`px-3 py-1 text-xs font-semibold rounded-full border ${sc[selected.status].bg} ${sc[selected.status].text} ${sc[selected.status].border}`}>
-                {sc[selected.status].label}
-              </span>
+              <StatusBadge status={selected.status} className="px-3 py-1 text-xs" />
               <button type="button" onClick={() => setSelected(null)} aria-label="إغلاق" className="absolute left-4 top-1/2 -translate-y-1/2 p-1.5 text-muted-foreground hover:text-foreground opacity-70 hover:opacity-100 transition-all">
                 <X size={20} />
               </button>
@@ -502,13 +499,11 @@ export const Invoices: React.FC = () => {
               )}
               {selected.status === 'Posted' && (
                 <button
-                  onClick={() => {
-                    if (window.confirm('هل تريد إلغاء هذه الفاتورة؟ سيؤدي هذا إلى عكس جميع القيود.')) cancelMut.mutate(selected.id);
-                  }}
+                  onClick={() => setCancelTarget(selected)}
                   disabled={cancelMut.isPending}
                   className="w-full px-4 py-2.5 text-sm font-semibold text-primary-foreground bg-destructive hover:bg-destructive/90 rounded-lg disabled:opacity-50"
                 >
-                  {cancelMut.isPending ? 'جاري الإلغاء...' : '✕ إلغاء الفاتورة'}
+                  ✕ إلغاء الفاتورة
                 </button>
               )}
               {selected.status !== 'Draft' && (
@@ -521,6 +516,16 @@ export const Invoices: React.FC = () => {
         </div>
       )}
       <InvoiceBuilder isOpen={showBuilder} onClose={() => setShowBuilder(false)} suppliers={suppliers} warehouses={warehouses} products={products} />
+
+      <ConfirmDialog
+        open={cancelTarget !== null}
+        title={`تأكيد إلغاء ${cancelTarget?.invoiceNumber ?? ''}`}
+        message="هل تريد إلغاء هذه الفاتورة؟ سيؤدي هذا إلى عكس جميع القيود المحاسبية وتخصيصات التكاليف."
+        confirmLabel="تأكيد الإلغاء"
+        isPending={cancelMut.isPending}
+        onConfirm={() => { if (cancelTarget) cancelMut.mutate(cancelTarget.id); }}
+        onCancel={() => setCancelTarget(null)}
+      />
     </div>
   );
 };

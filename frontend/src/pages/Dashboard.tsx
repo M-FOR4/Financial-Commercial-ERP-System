@@ -5,6 +5,7 @@ import { useAuthStore } from '../store/useAuthStore';
 import { reportsApi, type DashboardKpiResponse } from '../services/reportsApi';
 import { salesApi, type SalesInvoiceDto } from '../services/salesApi';
 import { purchasesApi, type PurchaseInvoiceDto } from '../services/purchasesApi';
+import { StatusBadge } from '../components/StatusBadge';
 import { formatCurrency, formatDate, formatShortNumber, formatShortDate } from '../utils/format';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, PieChart, Pie, Cell,
@@ -186,12 +187,6 @@ export const Dashboard: React.FC = () => {
       .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
       .slice(0, 10);
   }, [recentSales, recentPurchases]);
-
-  const statusConfig: Record<string, { bg: string; text: string; border: string }> = {
-    Draft: { bg: 'bg-amber-500/15', text: 'text-amber-500', border: 'border-amber-500/30' },
-    Posted: { bg: 'bg-emerald-500/15', text: 'text-emerald-500', border: 'border-emerald-500/30' },
-    Cancelled: { bg: 'bg-red-500/15', text: 'text-red-500', border: 'border-red-500/30' },
-  };
 
   return (
     <div className="space-y-6">
@@ -416,7 +411,6 @@ export const Dashboard: React.FC = () => {
                   </td>
                 </tr>
               ) : recentTransactions.map(tx => {
-                const sc = statusConfig[tx.status] || statusConfig.Draft;
                 return (
                   <tr key={tx.id} className="hover:bg-muted/30 transition-colors">
                     <td className="px-5 py-3 text-center text-muted-foreground">{formatDate(tx.date)}</td>
@@ -432,9 +426,7 @@ export const Dashboard: React.FC = () => {
                     <td className="px-5 py-3 text-center text-foreground">{tx.party}</td>
                     <td className="px-5 py-3 text-center font-semibold text-foreground">{formatCurrency(tx.amount)}</td>
                     <td className="px-5 py-3 text-center">
-                      <span className={`px-2.5 py-0.5 text-[10px] font-semibold rounded-full border ${sc.bg} ${sc.text} ${sc.border}`}>
-                        {tx.statusName}
-                      </span>
+                      <StatusBadge status={tx.status} />
                     </td>
                   </tr>
                 );

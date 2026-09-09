@@ -141,13 +141,38 @@ public class SalesService : ISalesService
             if (invoice.Status != JournalEntryStatus.Draft)
                 throw new InvalidOperationException($"Only Draft invoices can be posted. Current status: '{invoice.Status}'.");
 
+            // README §7 Inventory: "Negative stock is controlled by system settings and permissions."
+            // AllowNegativeStock (General Settings) permits posting beyond available stock;
+            // COGS for such lines falls back to the product's last known purchase price.
+            var systemSettings = await _context.SystemSettings.AsNoTracking()
+                .FirstOrDefaultAsync(s => s.CompanyId == invoice.CompanyId);
+            var allowNegativeStock = systemSettings?.AllowNegativeStock ?? false;
+
             // Validate stock availability for each line using Product.CurrentStock
             foreach (var line in invoice.Lines)
             {
-                if (line.Product.CurrentStock < line.Quantity)
+                if (!allowNegativeStock && line.Product.CurrentStock < line.Quantity)
                     throw new InvalidOperationException(
                         $"Insufficient stock for '{line.Product?.Name ?? line.ProductId.ToString()}'. " +
-                        $"Available: {line.Product.CurrentStock}, Requested: {line.Quantity}.");
+                        $"Available: {line.Product.CurrentStock}, Requested: {line.Quantity}. " +
+                        "المخزون غير كافٍ — يمكن تمكين البيع بالسالب من إعدادات المنظومة (السماح بالبيع بالسالب).");
+            }
+
+            // Resolve the effective unit cost per line before any stock mutation:
+            // lines that push the product's stock negative are costed at the product's
+            // last known purchase price instead of the snapshot UnitCostAtSale.
+            var remainingStockByProduct = new Dictionary<Guid, decimal>();
+            var effectiveUnitCostByLine = new Dictionary<Guid, decimal>();
+            foreach (var line in invoice.Lines)
+            {
+                var remaining = remainingStockByProduct.TryGetValue(line.ProductId, out var r)
+                    ? r
+                    : line.Product.CurrentStock;
+                var wentNegative = remaining < line.Quantity;
+                effectiveUnitCostByLine[line.Id] = wentNegative
+                    ? line.Product.PurchasePrice
+                    : line.UnitCostAtSale;
+                remainingStockByProduct[line.ProductId] = remaining - line.Quantity;
             }
 
             // 1. Create Journal Entry: Debit AR, Credit Sales Revenue, Debit COGS, Credit Inventory
@@ -198,7 +223,8 @@ public class SalesService : ISalesService
             decimal totalCogs = 0m;
             foreach (var line in invoice.Lines)
             {
-                var cogsAmount = line.Quantity * line.UnitCostAtSale;
+                var effectiveUnitCost = effectiveUnitCostByLine[line.Id];
+                var cogsAmount = line.Quantity * effectiveUnitCost;
                 totalCogs += cogsAmount;
 
                 // Debit COGS
@@ -207,7 +233,9 @@ public class SalesService : ISalesService
                     AccountId = cogsAccount.Id,
                     Debit = cogsAmount,
                     Credit = 0m,
-                    Description = $"COGS — {line.Product.Name} ({line.Quantity} × {line.UnitCostAtSale})"
+                    Description = effectiveUnitCost == line.Product.PurchasePrice && line.UnitCostAtSale != line.Product.PurchasePrice
+                        ? $"COGS — {line.Product.Name} ({line.Quantity} × {effectiveUnitCost}, costed at last purchase price — negative stock)"
+                        : $"COGS — {line.Product.Name} ({line.Quantity} × {effectiveUnitCost})"
                 });
 
                 // Credit Inventory
@@ -243,7 +271,7 @@ public class SalesService : ISalesService
                     WarehouseId = invoice.WarehouseId,
                     MovementType = MovementType.Out,
                     Quantity = line.Quantity,
-                    UnitCost = line.UnitCostAtSale,
+                    UnitCost = effectiveUnitCostByLine[line.Id],
                     ReferenceDocument = invoice.InvoiceNumber,
                     Notes = $"Sale — {invoice.InvoiceNumber}",
                     MovementDate = invoice.InvoiceDate,

@@ -19,6 +19,7 @@ public class AppDbContext : DbContext
     public DbSet<JournalEntry> JournalEntries => Set<JournalEntry>();
     public DbSet<JournalEntryLine> JournalEntryLines => Set<JournalEntryLine>();
     public DbSet<AccountingDefaults> AccountingDefaults => Set<AccountingDefaults>();
+    public DbSet<SystemSetting> SystemSettings => Set<SystemSetting>();
     public DbSet<CostCenter> CostCenters => Set<CostCenter>();
     public DbSet<Category> Categories => Set<Category>();
     public DbSet<Warehouse> Warehouses => Set<Warehouse>();
@@ -142,6 +143,12 @@ modelBuilder.Entity<AccountingDefaults>(e => {
         e.HasKey(ad => ad.Id);
         e.HasIndex(ad => ad.CompanyId).IsUnique();
         e.HasOne(ad => ad.Company).WithMany().HasForeignKey(ad => ad.CompanyId).OnDelete(DeleteBehavior.Restrict);
+        });
+modelBuilder.Entity<SystemSetting>(e => {
+        e.HasKey(s => s.Id);
+        e.HasIndex(s => s.CompanyId).IsUnique();
+        e.Property(s => s.AllowNegativeStock).HasDefaultValue(false);
+        e.HasOne(s => s.Company).WithOne().HasForeignKey<SystemSetting>(s => s.CompanyId).OnDelete(DeleteBehavior.Restrict);
         });
 modelBuilder.Entity<JournalEntry>(e => {
         e.HasKey(je => je.Id);

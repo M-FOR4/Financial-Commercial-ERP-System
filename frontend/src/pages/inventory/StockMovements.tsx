@@ -2,17 +2,31 @@ import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { inventoryApi, type ProductDto, type WarehouseDto, type MovementType, type CreateStockMovementRequest } from '../../services/inventoryApi';
 import { X } from 'lucide-react';
+import { StatusBadge, type StatusTone } from '../../components/StatusBadge';
 import { formatCurrency, formatStock, formatDate } from '../../utils/format';
 
-const movementTypeConfig: Record<MovementType, { color: string; label: string; sign: string; arLabel: string }> = {
-  In: { color: 'text-emerald-400 bg-emerald-500/15 border-emerald-500/30', label: 'In', sign: '+', arLabel: 'وارد' },
-  Out: { color: 'text-rose-400 bg-rose-500/15 border-rose-500/30', label: 'Out', sign: '-', arLabel: 'صادر' },
-  Adjustment: { color: 'text-amber-400 bg-amber-500/15 border-amber-500/30', label: 'Adjustment', sign: '±', arLabel: 'تسوية' },
-  Transfer: { color: 'text-purple-400 bg-purple-500/15 border-purple-500/30', label: 'Transfer', sign: '⇄', arLabel: 'تحويل' },
+// Safe tone lookup — unknown movement types from the backend must never crash the page
+const movementTone: Record<string, StatusTone> = {
+  In: 'success',
+  Out: 'destructive',
+  Adjustment: 'warning',
+  Transfer: 'info',
+};
+const movementMeta = (type?: string | null): { tone: StatusTone; label: string; sign: string } => {
+  if (type && movementTone[type]) {
+    const labels: Record<string, { label: string; sign: string }> = {
+      In: { label: 'وارد', sign: '+' },
+      Out: { label: 'صادر', sign: '-' },
+      Adjustment: { label: 'تسوية', sign: '±' },
+      Transfer: { label: 'تحويل', sign: '⇄' },
+    };
+    return { tone: movementTone[type], ...labels[type] };
+  }
+  return { tone: 'neutral', label: type || '—', sign: '•' };
 };
 
 interface NewMovementFormProps { isOpen: boolean; onClose: () => void; products: ProductDto[]; warehouses: WarehouseDto[]; }
-const NewMovementForm: React.FC<NewMovementFormProps> = ({ isOpen, onClose, products, warehouses }) => {
+const NewMovementForm: React.FC<NewMovementFormProps> = ({ isOpen, onClose, products = [], warehouses = [] }) => {
   const queryClient = useQueryClient();
   const [productId, setProductId] = useState('');
   const [warehouseId, setWarehouseId] = useState('');
@@ -50,10 +64,13 @@ const NewMovementForm: React.FC<NewMovementFormProps> = ({ isOpen, onClose, prod
             <label className="block text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1.5">نوع الحركة</label>
             <div className="grid grid-cols-4 gap-2">
               {(['In', 'Out', 'Adjustment', 'Transfer'] as MovementType[]).map(t => {
-                const cfg = movementTypeConfig[t];
-                return (<button key={t} type="button" onClick={() => setMovementType(t)} className={`px-3 py-2.5 text-xs font-semibold rounded-lg border transition-all ${movementType === t ? cfg.color : 'bg-muted text-muted-foreground border-border hover:text-foreground'}`}>
-                  <span className="block text-lg leading-none mb-1">{cfg.sign}</span>{cfg.arLabel}
-                </button>);
+                const meta = movementMeta(t);
+                return (
+                  <button key={t} type="button" onClick={() => setMovementType(t)}
+                    className={`px-3 py-2.5 text-xs font-semibold rounded-lg border transition-all ${movementType === t ? 'bg-primary text-primary-foreground border-primary' : 'bg-muted text-muted-foreground border-border hover:text-foreground'}`}>
+                    <span className="block text-lg leading-none mb-1">{meta.sign}</span>{meta.label}
+                  </button>
+                );
               })}
             </div>
           </div>
@@ -74,7 +91,7 @@ const NewMovementForm: React.FC<NewMovementFormProps> = ({ isOpen, onClose, prod
             <div><label className="block text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1.5">تكلفة الوحدة (د.ل)</label>
               <input type="number" min="0" step="0.0001" value={unitCost} onChange={e => setUnitCost(e.target.value)} className="w-full px-4 py-2.5 bg-input border-border rounded-lg text-foreground placeholder-muted-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring" /></div>
             <div><label className="block text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1.5">التاريخ</label>
-              <input type="date" required value={movementDate} onChange={e => setMovementDate(e.target.value)} className="w-full px-4 py-2.5 bg-input border-border rounded-lg text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring" /></div>
+              <input type="date" required value={movementDate} onChange={e => setMovementDate(e.target.value)} className="w-full px-4 py-2.5 bg-input border-border rounded-lg text-foreground placeholder-muted-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring" /></div>
           </div>
           <div><label className="block text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1.5">المستند المرجعي</label>
             <input type="text" value={referenceDocument} onChange={e => setReferenceDocument(e.target.value)} placeholder="مثال: PO-001, SO-042" className="w-full px-4 py-2.5 bg-input border-border rounded-lg text-foreground placeholder-muted-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring" /></div>
@@ -98,13 +115,16 @@ export const StockMovements: React.FC = () => {
   const [typeFilter, setTypeFilter] = useState<MovementType | ''>('');
   const [warehouseFilter, setWarehouseFilter] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
-  const { data: stockStatus = [], isLoading: statusLoading } = useQuery({ queryKey: ['stockStatus'], queryFn: () => inventoryApi.getStockStatus() });
-  const { data: movements = [], isLoading: movementsLoading } = useQuery({ queryKey: ['stockMovements', typeFilter, warehouseFilter], queryFn: () => inventoryApi.getStockMovements({ type: typeFilter as MovementType || undefined, warehouseId: warehouseFilter || undefined }) });
+  const { data: stockStatus = [], isLoading: statusLoading, error: statusError } = useQuery({ queryKey: ['stockStatus'], queryFn: () => inventoryApi.getStockStatus() });
+  const { data: movements = [], isLoading: movementsLoading, error: movementsError } = useQuery({ queryKey: ['stockMovements', typeFilter, warehouseFilter], queryFn: () => inventoryApi.getStockMovements({ type: typeFilter as MovementType || undefined, warehouseId: warehouseFilter || undefined }) });
   const { data: products = [] } = useQuery({ queryKey: ['products'], queryFn: () => inventoryApi.getProducts() });
   const { data: warehouses = [] } = useQuery({ queryKey: ['warehouses'], queryFn: () => inventoryApi.getWarehouses() });
-  const filteredStatus = stockStatus.filter(s => !searchQuery || s.productSKU.toLowerCase().includes(searchQuery.toLowerCase()) || s.productName.toLowerCase().includes(searchQuery.toLowerCase()));
-  const filteredMovements = movements.filter(m => !searchQuery || m.productSKU.toLowerCase().includes(searchQuery.toLowerCase()) || m.productName.toLowerCase().includes(searchQuery.toLowerCase()) || (m.referenceDocument?.toLowerCase().includes(searchQuery.toLowerCase()) ?? false));
+
+  const q = searchQuery.toLowerCase();
+  const filteredStatus = (stockStatus ?? []).filter(s => !q || (s.productSKU ?? '').toLowerCase().includes(q) || (s.productName ?? '').toLowerCase().includes(q));
+  const filteredMovements = (movements ?? []).filter(m => !q || (m.productSKU ?? '').toLowerCase().includes(q) || (m.productName ?? '').toLowerCase().includes(q) || (m.referenceDocument ?? '').toLowerCase().includes(q));
   const isLoading = activeTab === 'status' ? statusLoading : movementsLoading;
+  const hasError = !!(statusError || movementsError);
 
   return (
     <div className="space-y-6">
@@ -117,25 +137,31 @@ export const StockMovements: React.FC = () => {
       </div>
 
       <div className="flex gap-1 bg-card border border-border rounded-xl p-1">
-        <button onClick={() => setActiveTab('status')} className={`flex-1 px-4 py-2.5 text-sm font-semibold rounded-lg transition-colors ${activeTab === 'status' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'}`}>حالة المخزون ({stockStatus.length})</button>
-        <button onClick={() => setActiveTab('movements')} className={`flex-1 px-4 py-2.5 text-sm font-semibold rounded-lg transition-colors ${activeTab === 'movements' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'}`}>سجل الحركات ({movements.length})</button>
+        <button onClick={() => setActiveTab('status')} className={`flex-1 px-4 py-2.5 text-sm font-semibold rounded-lg transition-colors ${activeTab === 'status' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'}`}>حالة المخزون ({(stockStatus ?? []).length})</button>
+        <button onClick={() => setActiveTab('movements')} className={`flex-1 px-4 py-2.5 text-sm font-semibold rounded-lg transition-colors ${activeTab === 'movements' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'}`}>سجل الحركات ({(movements ?? []).length})</button>
       </div>
 
       <div className="bg-card border border-border rounded-xl p-4 flex flex-wrap gap-4 items-center">
         <input type="text" value={searchQuery} onChange={e => setSearchQuery(e.target.value)} placeholder="بحث بالرمز أو الاسم أو المرجع..." className="flex-1 min-w-[200px] px-4 py-2 bg-input border-border rounded-lg text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring text-sm" />
         {activeTab === 'movements' && (<>
           <select value={typeFilter} onChange={e => setTypeFilter(e.target.value as MovementType | '')} className="px-4 py-2 bg-input border-border rounded-lg text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring">
-            <option value="">جميع الأنواع</option>{(['In', 'Out', 'Adjustment', 'Transfer'] as MovementType[]).map(t => <option key={t} value={t}>{movementTypeConfig[t].arLabel}</option>)}
+            <option value="">جميع الأنواع</option>{(['In', 'Out', 'Adjustment', 'Transfer'] as MovementType[]).map(t => <option key={t} value={t}>{movementMeta(t).label}</option>)}
           </select>
           <select value={warehouseFilter} onChange={e => setWarehouseFilter(e.target.value)} className="px-4 py-2 bg-input border-border rounded-lg text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring">
-            <option value="">جميع المستودعات</option>{warehouses.filter(w => w.isActive).map(w => <option key={w.id} value={w.id}>{w.code} — {w.name}</option>)}
+            <option value="">جميع المستودعات</option>{(warehouses ?? []).filter(w => w.isActive).map(w => <option key={w.id} value={w.id}>{w.code} — {w.name}</option>)}
           </select>
         </>)}
       </div>
 
+      {hasError && (
+        <div className="bg-destructive/10 border border-destructive/30 rounded-lg p-4 text-sm text-destructive text-center">
+          تعذر تحميل بيانات المخزون — تحقق من الاتصال بالخادم وأعد المحاولة.
+        </div>
+      )}
+
       {isLoading && <div className="flex items-center justify-center p-12 text-muted-foreground space-x-3"><div className="w-5 h-5 border-2 border-primary border-t-transparent rounded-full animate-spin" /><span>جاري التحميل...</span></div>}
 
-      {!isLoading && activeTab === 'status' && (
+      {!isLoading && !hasError && activeTab === 'status' && (
         <div className="bg-card border border-border rounded-2xl overflow-hidden shadow-sm">
           <table className="w-full text-sm">
             <thead><tr className="bg-muted/40 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
@@ -147,10 +173,10 @@ export const StockMovements: React.FC = () => {
                   <td className="px-5 py-3 font-semibold text-primary text-right">{s.productSKU}</td>
                   <td className="px-5 py-3 text-foreground text-right">{s.productName}</td>
                   <td className="px-5 py-3 text-muted-foreground text-right">{s.categoryName}</td>
-                  <td className="px-5 py-3 text-left"><span className={`font-bold text-base ${s.isLowStock ? 'text-amber-400' : 'text-emerald-400'}`}>{formatStock(s.totalStock)}</span></td>
+                  <td className="px-5 py-3 text-left"><span className={`font-bold text-base ${s.isLowStock ? 'text-amber-500 dark:text-amber-400' : 'text-emerald-600 dark:text-emerald-400'}`}>{formatStock(s.totalStock)}</span></td>
                   <td className="px-5 py-3 text-left text-muted-foreground">{formatStock(s.minStockLevel)}</td>
-                  <td className="px-5 py-3 text-center">{s.isLowStock ? <span className="px-2.5 py-0.5 text-[10px] font-bold rounded-full bg-amber-500/15 text-amber-400 border border-amber-500/30">مخزون منخفض</span> : <span className="px-2.5 py-0.5 text-[10px] font-bold rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">جيد</span>}</td>
-                  <td className="px-5 py-3 text-right"><div className="flex flex-wrap gap-1 justify-start">{s.warehouseStocks.map(ws => <span key={ws.warehouseId} className="px-2 py-0.5 text-xs bg-muted text-muted-foreground rounded">{ws.warehouseCode}: {formatStock(ws.quantity)}</span>)}</div></td>
+                  <td className="px-5 py-3 text-center"><StatusBadge status={s.isLowStock ? 'lowStock' : 'good'} /></td>
+                  <td className="px-5 py-3 text-right"><div className="flex flex-wrap gap-1 justify-start">{(s.warehouseStocks ?? []).map(ws => <span key={ws.warehouseId} className="px-2 py-0.5 text-xs bg-muted text-muted-foreground rounded">{ws.warehouseCode}: {formatStock(ws.quantity)}</span>)}</div></td>
                 </tr>
               ))}
             </tbody>
@@ -158,24 +184,27 @@ export const StockMovements: React.FC = () => {
         </div>
       )}
 
-      {!isLoading && activeTab === 'movements' && (
+      {!isLoading && !hasError && activeTab === 'movements' && (
         <div className="bg-card border border-border rounded-2xl overflow-hidden shadow-sm">
           <table className="w-full text-sm">
             <thead><tr className="bg-muted/40 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
               <th className="px-5 py-3 text-right">التاريخ</th><th className="px-5 py-3 text-right">الصنف</th><th className="px-5 py-3 text-center">النوع</th><th className="px-5 py-3 text-right">المستودع</th><th className="px-5 py-3 text-left">الكمية</th><th className="px-5 py-3 text-left">تكلفة الوحدة</th><th className="px-5 py-3 text-right">المرجع</th>
             </tr></thead>
             <tbody className="divide-y divide-border/50">
-              {filteredMovements.length === 0 ? <tr><td colSpan={7} className="px-5 py-12 text-center text-muted-foreground">لا توجد حركات مسجلة.</td></tr> : filteredMovements.map(m => (
-                <tr key={m.id} className="hover:bg-muted/30 transition-colors">
-                  <td className="px-5 py-3 text-xs text-muted-foreground text-right">{formatDate(m.movementDate)}</td>
-                  <td className="px-5 py-3 text-right"><span className="text-xs text-muted-foreground ml-1.5">{m.productSKU}</span><span className="text-foreground">{m.productName}</span></td>
-                  <td className="px-5 py-3 text-center"><span className={`px-2 py-0.5 text-[10px] font-semibold rounded-full border ${movementTypeConfig[m.movementType].color}`}>{movementTypeConfig[m.movementType].arLabel}</span></td>
-                  <td className="px-5 py-3 text-sm text-muted-foreground text-right">{m.warehouseName}</td>
-                  <td className="px-5 py-3 text-left font-semibold">{m.movementType === 'In' ? '+' : m.movementType === 'Out' ? '-' : '±'}{formatStock(m.quantity)}</td>
-                  <td className="px-5 py-3 text-left text-foreground">{formatCurrency(m.unitCost)}</td>
-                  <td className="px-5 py-3 text-xs text-muted-foreground text-right">{m.referenceDocument || '-'}</td>
-                </tr>
-              ))}
+              {filteredMovements.length === 0 ? <tr><td colSpan={7} className="px-5 py-12 text-center text-muted-foreground">لا توجد حركات مسجلة.</td></tr> : filteredMovements.map(m => {
+                const meta = movementMeta(m.movementType);
+                return (
+                  <tr key={m.id} className="hover:bg-muted/30 transition-colors">
+                    <td className="px-5 py-3 text-xs text-muted-foreground text-right">{formatDate(m.movementDate)}</td>
+                    <td className="px-5 py-3 text-right"><span className="text-xs text-muted-foreground ml-1.5">{m.productSKU}</span><span className="text-foreground">{m.productName}</span></td>
+                    <td className="px-5 py-3 text-center"><StatusBadge status={m.movementType ?? ''} tone={meta.tone} label={meta.label} /></td>
+                    <td className="px-5 py-3 text-sm text-muted-foreground text-right">{m.warehouseName}</td>
+                    <td className="px-5 py-3 text-left font-semibold">{m.movementType === 'In' ? '+' : m.movementType === 'Out' ? '-' : '±'}{formatStock(m.quantity)}</td>
+                    <td className="px-5 py-3 text-left text-foreground">{formatCurrency(m.unitCost)}</td>
+                    <td className="px-5 py-3 text-xs text-muted-foreground text-right">{m.referenceDocument || '-'}</td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
@@ -185,4 +214,3 @@ export const StockMovements: React.FC = () => {
     </div>
   );
 };
-

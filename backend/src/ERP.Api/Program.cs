@@ -55,6 +55,7 @@ builder.Services.AddScoped<IReportService, ReportService>();
 builder.Services.AddScoped<IFixedAssetService, FixedAssetService>();
 builder.Services.AddScoped<IAuditService, AuditService>();
 builder.Services.AddScoped<IAdminService, AdminService>();
+builder.Services.AddScoped<ISystemSettingsService, SystemSettingsService>();
 
 // Configure CORS for local dev and Render production frontend
 var configuredAllowedOrigins = builder.Configuration["Cors:AllowedOrigins"] 
@@ -186,14 +187,18 @@ using (var scope = app.Services.CreateScope())
     var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
     try
     {
-        db.Database.Migrate();
+        // Apply pending migrations FIRST and AWAIT completion before any seeding.
+        // The seeder queries concrete tables (companies, permissions, system_settings, …);
+        // seeding before the schema exists crashes with PostgresException 42P01
+        // ("relation … does not exist") on fresh or out-of-date databases.
+        await db.Database.MigrateAsync();
         Log.Information("Database migrations verified and up to date.");
 
         // Comprehensive seed: Company, Branch, FiscalYear, Permissions, Roles, Admin User, COA, AccountingDefaults, Warehouse
         var hasher = scope.ServiceProvider.GetRequiredService<IPasswordHasher>();
         var loggerFactory = scope.ServiceProvider.GetRequiredService<ILoggerFactory>();
         var seederLogger = loggerFactory.CreateLogger("DataSeeder");
-        ERP.Api.Data.DataSeeder.SeedAsync(db, hasher, seederLogger).GetAwaiter().GetResult();
+        await ERP.Api.Data.DataSeeder.SeedAsync(db, hasher, seederLogger);
     }
     catch (Exception ex)
     {

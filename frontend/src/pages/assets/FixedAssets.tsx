@@ -1,18 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import {
   fixedAssetsApi,
-  type FixedAsset, type AssetCategory, type AssetStatus,
+  type FixedAsset, type AssetCategory,
 } from '../../services/fixedAssetsApi';
 import { api } from '../../services/api';
 import type { AccountDto } from '../../services/accountingApi';
 import { X } from 'lucide-react';
+import { showError } from '../../lib/toast';
+import { StatusBadge } from '../../components/StatusBadge';
 import { formatCurrency } from '../../utils/format';
-
-const statusConfig: Record<AssetStatus, { bg: string; text: string; border: string; label: string }> = {
-  Active: { bg: 'bg-emerald-500/15', text: 'text-emerald-400', border: 'border-emerald-500/30', label: 'نشط' },
-  FullyDepreciated: { bg: 'bg-blue-500/15', text: 'text-blue-400', border: 'border-blue-500/30', label: 'محقق بالكامل' },
-  Disposed: { bg: 'bg-destructive/15', text: 'text-destructive', border: 'border-destructive/30', label: 'تم التخلص' },
-};
 
 export const FixedAssets: React.FC = () => {
   const [assets, setAssets] = useState<FixedAsset[]>([]);
@@ -89,7 +85,7 @@ export const FixedAssets: React.FC = () => {
       setShowDisposalModal(null);
       setDisposalForm({ disposalValue: 0, description: '' });
       await loadData();
-    } catch (err: any) { alert(err.response?.data?.error || 'فشل في التخلص من الأصل.'); }
+    } catch (err: any) { showError('تعذر التخلص من الأصل', err.response?.data?.error || 'فشل في التخلص من الأصل.'); }
   };
 
   if (loading) return <div className="flex items-center justify-center h-64 text-muted-foreground">جاري تحميل الأصول الثابتة...</div>;
@@ -326,7 +322,6 @@ export const FixedAssets: React.FC = () => {
                 <tr><td colSpan={9} className="px-5 py-12 text-center text-muted-foreground">لا توجد أصول ثابتة مسجلة بعد.</td></tr>
               ) : (
                 assets.map(asset => {
-                  const sc = statusConfig[asset.status];
                   return (
                     <tr key={asset.id} className="hover:bg-muted/30 transition-colors">
                       <td className="px-5 py-3 font-semibold text-primary text-right">{asset.assetCode}</td>
@@ -337,9 +332,7 @@ export const FixedAssets: React.FC = () => {
                       <td className="px-5 py-3 text-left font-bold text-emerald-400">{formatCurrency(asset.currentBookValue)}</td>
                       <td className="px-5 py-3 text-left text-muted-foreground">{formatCurrency(asset.monthlyDepreciation)}</td>
                       <td className="px-5 py-3 text-center">
-                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-semibold ${sc.bg} ${sc.text} border ${sc.border}`}>
-                          {sc.label}
-                        </span>
+                        <StatusBadge status={asset.status} />
                       </td>
                       <td className="px-5 py-3 text-center">
                         {asset.status === 'Active' && (

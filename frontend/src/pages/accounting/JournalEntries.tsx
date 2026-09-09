@@ -10,6 +10,8 @@ import {
 } from '../../services/accountingApi';
 
 import { X } from 'lucide-react';
+import { ConfirmDialog } from '../../components/ConfirmDialog';
+import { StatusBadge } from '../../components/StatusBadge';
 import { formatBalance, formatDate } from '../../utils/format';
 
 // ── Helpers ──
@@ -289,6 +291,7 @@ interface EntryDetailProps {
 
 const EntryDetail: React.FC<EntryDetailProps> = ({ entry, onClose }) => {
   const queryClient = useQueryClient();
+  const [showCancelConfirm, setShowCancelConfirm] = useState(false);
 
   const postMutation = useMutation({
     mutationFn: accountingApi.postJournalEntry,
@@ -308,8 +311,6 @@ const EntryDetail: React.FC<EntryDetailProps> = ({ entry, onClose }) => {
 
   if (!entry) return null;
 
-  const sc = statusConfig[entry.status];
-
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4" onClick={onClose}>
       <div className="bg-card border border-border rounded-2xl shadow-2xl w-full max-w-2xl mx-4 max-h-[calc(100vh-4rem)] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
@@ -319,9 +320,7 @@ const EntryDetail: React.FC<EntryDetailProps> = ({ entry, onClose }) => {
             <h3 className="text-lg font-bold text-foreground">{entry.entryNumber}</h3>
             <span className="text-xs text-muted-foreground">{formatDate(entry.entryDate)}</span>
           </div>
-          <span className={`px-3 py-1 text-xs font-semibold rounded-full border ${sc.bg} ${sc.text} ${sc.border}`}>
-            {entry.statusName} ({sc.label})
-          </span>
+          <StatusBadge status={entry.status} className="px-3 py-1 text-xs" />
           <button
             type="button"
             onClick={onClose}
@@ -420,11 +419,7 @@ const EntryDetail: React.FC<EntryDetailProps> = ({ entry, onClose }) => {
             )}
             {entry.status === 'Posted' && (
               <button
-                onClick={() => {
-                  if (window.confirm(`هل أنت متأكد من إلغاء ${entry.entryNumber}؟ سيؤدي هذا إلى عكس جميع أرصدة دفتر الأستاذ.`)) {
-                    cancelMutation.mutate(entry.id);
-                  }
-                }}
+                onClick={() => setShowCancelConfirm(true)}
                 disabled={cancelMutation.isPending}
                 className="flex-1 px-4 py-2.5 text-sm font-semibold text-foreground bg-red-600 hover:bg-red-500 rounded-lg transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
               >
@@ -446,6 +441,16 @@ const EntryDetail: React.FC<EntryDetailProps> = ({ entry, onClose }) => {
           </div>
         </div>
       </div>
+
+      <ConfirmDialog
+        open={showCancelConfirm}
+        title={`تأكيد إلغاء ${entry?.entryNumber ?? ''}`}
+        message="هل أنت متأكد من إلغاء هذا القيد؟ سيؤدي هذا إلى عكس جميع أرصدة دفتر الأستاذ."
+        confirmLabel="تأكيد الإلغاء"
+        isPending={cancelMutation.isPending}
+        onConfirm={() => cancelMutation.mutate(entry!.id)}
+        onCancel={() => setShowCancelConfirm(false)}
+      />
     </div>
   );
 };
@@ -457,6 +462,7 @@ export const JournalEntries: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [showNewForm, setShowNewForm] = useState(false);
   const [selectedEntry, setSelectedEntry] = useState<JournalEntryDto | null>(null);
+  const [postTarget, setPostTarget] = useState<JournalEntryDto | null>(null);
 
   const { data: entries = [], isLoading, error } = useQuery({
     queryKey: ['journalEntries', statusFilter, searchQuery],
@@ -574,7 +580,6 @@ export const JournalEntries: React.FC = () => {
                   </tr>
                 ) : (
                   entries.map((entry) => {
-                    const sc = statusConfig[entry.status];
                     return (
                       <tr
                         key={entry.id}
@@ -584,11 +589,7 @@ export const JournalEntries: React.FC = () => {
                         <td className="px-5 py-3 font-semibold text-indigo-400">{entry.entryNumber}</td>
                         <td className="px-5 py-3 text-muted-foreground">{formatDate(entry.entryDate)}</td>
                         <td className="px-5 py-3 text-foreground truncate max-w-xs">{entry.description}</td>
-                        <td className="px-5 py-3 text-center">
-                          <span className={`px-2.5 py-0.5 text-[10px] font-semibold rounded-full border ${sc.bg} ${sc.text} ${sc.border}`}>
-                            {entry.statusName}
-                          </span>
-                        </td>
+                        <td className="px-5 py-3 text-center"><StatusBadge status={entry.status} /></td>
                         <td className="px-5 py-3 text-right text-emerald-400">{formatBalance(entry.totalDebit)}</td>
                         <td className="px-5 py-3 text-right text-sky-400">{formatBalance(entry.totalCredit)}</td>
                         <td className="px-5 py-3 text-center text-muted-foreground">{entry.lines.length}</td>
@@ -596,13 +597,7 @@ export const JournalEntries: React.FC = () => {
                           {entry.status === 'Draft' && (
                             <div className="flex gap-1 justify-center" onClick={(e) => e.stopPropagation()}>
                               <button
-                                onClick={() => {
-                                  if (window.confirm(`ترحيل ${entry.entryNumber}؟`)) {
-                                    accountingApi.postJournalEntry(entry.id).then(() => {
-                                      window.location.reload();
-                                    });
-                                  }
-                                }}
+                                onClick={() => setPostTarget(entry)}
                                 className="px-2 py-1 text-[10px] font-semibold text-emerald-400 bg-emerald-900/30 border border-emerald-700/40 rounded hover:bg-emerald-900/50 transition-colors"
                               >
                                 ترحيل
@@ -623,6 +618,24 @@ export const JournalEntries: React.FC = () => {
       {/* Modals */}
       <NewEntryForm isOpen={showNewForm} onClose={() => setShowNewForm(false)} accounts={accounts} />
       <EntryDetail entry={selectedEntry} onClose={() => setSelectedEntry(null)} />
+
+      <ConfirmDialog
+        open={postTarget !== null}
+        title={`تأكيد الترحيل ${postTarget?.entryNumber ?? ''}`}
+        message="سيتم ترحيل القيد وتحديث دفتر الأستاذ. هل تريد المتابعة؟"
+        confirmLabel="تأكيد الترحيل"
+        variant="default"
+        onConfirm={() => {
+          const target = postTarget;
+          setPostTarget(null);
+          if (target) {
+            accountingApi.postJournalEntry(target.id).then(() => {
+              window.location.reload();
+            });
+          }
+        }}
+        onCancel={() => setPostTarget(null)}
+      />
     </div>
   );
 };

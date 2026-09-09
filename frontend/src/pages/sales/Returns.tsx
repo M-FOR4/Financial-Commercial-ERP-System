@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { salesApi, type SalesReturnDto, type JournalEntryStatus, type CreateSalesReturnRequest, type SalesInvoiceDto } from '../../services/salesApi';
 
 import { X } from 'lucide-react';
+import { StatusBadge } from '../../components/StatusBadge';
 import { formatCurrency, formatStock, formatDate } from '../../utils/format';
 
 const statusConfig: Record<JournalEntryStatus, { bg: string; text: string; border: string; label: string }> = {
@@ -226,14 +227,13 @@ export const Returns: React.FC = () => {
                 {returns.length === 0 ? (
                   <tr><td colSpan={7} className="px-5 py-12 text-center text-muted-foreground">لم يتم العثور على مرتجعات.</td></tr>
                 ) : returns.map(ret => {
-                  const sc = statusConfig[ret.status];
                   return (
                     <tr key={ret.id} className="hover:bg-muted/30 cursor-pointer transition-colors" onClick={() => setSelectedReturn(ret)}>
                       <td className="px-5 py-3 text-center font-semibold text-primary">{ret.returnNumber}</td>
                       <td className="px-5 py-3 text-center text-muted-foreground">{formatDate(ret.returnDate)}</td>
                       <td className="px-5 py-3 text-center text-muted-foreground">{ret.originalInvoiceNumber}</td>
                       <td className="px-5 py-3 text-center text-foreground">{ret.customerName}</td>
-                      <td className="px-5 py-3 text-center"><span className={`px-2.5 py-0.5 text-[10px] font-semibold rounded-full border ${sc.bg} ${sc.text} ${sc.border}`}>{ret.statusName}</span></td>
+                      <td className="px-5 py-3 text-center"><StatusBadge status={ret.status} /></td>
                       <td className="px-5 py-3 text-center font-semibold text-amber-500">{formatCurrency(ret.totalAmount)}</td>
                       <td className="px-5 py-3 text-center" onClick={(e) => e.stopPropagation()}>
                         {ret.status === 'Draft' && (
@@ -259,9 +259,7 @@ export const Returns: React.FC = () => {
                 <h3 className="text-lg font-bold text-foreground">{selectedReturn.returnNumber}</h3>
                 <span className="text-xs text-muted-foreground">الأصلي: {selectedReturn.originalInvoiceNumber} — {selectedReturn.customerName}</span>
               </div>
-              <span className={`px-3 py-1 text-xs font-semibold rounded-full border ${statusConfig[selectedReturn.status].bg} ${statusConfig[selectedReturn.status].text} ${statusConfig[selectedReturn.status].border}`}>
-                {selectedReturn.statusName}
-              </span>
+              <StatusBadge status={selectedReturn.status} className="px-3 py-1 text-xs" />
               <button type="button" onClick={() => setSelectedReturn(null)} aria-label="إغلاق" className="absolute left-4 top-1/2 -translate-y-1/2 p-1.5 text-muted-foreground hover:text-foreground opacity-70 hover:opacity-100 transition-all">
                 <X size={20} />
               </button>

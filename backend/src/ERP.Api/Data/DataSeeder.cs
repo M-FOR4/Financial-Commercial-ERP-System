@@ -1,8 +1,11 @@
+using System.Data;
 using System.Text.Json;
 using ERP.Api.Domain.Entities;
 using ERP.Api.Domain.Enums;
 using ERP.Api.Services;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Storage;
 
 namespace ERP.Api.Data;
 
@@ -17,9 +20,24 @@ public static class DataSeeder
     public static async Task SeedAsync(AppDbContext db, IPasswordHasher passwordHasher, ILogger logger)
     {
         // ═══════════════════════════════════════════
+        // 0. SCHEMA GUARD (defense in depth)
+        // ═══════════════════════════════════════════
+        // The seeder queries concrete tables (companies, permissions, system_settings, …).
+        // If migrations were not applied, those queries would surface as raw
+        // PostgresException 42P01 ("relation … does not exist"). Fail fast here with an
+        // actionable message instead.
+        await EnsureSchemaIsCurrentAsync(db);
+
+        // ═══════════════════════════════════════════
         // 0. FIXUP: Rename legacy permission names
         // ═══════════════════════════════════════════
         await FixupPermissionNamesAsync(db, logger);
+
+        // 0.1 ENSURE: post-rollout additions (permissions introduced after initial
+        // deployment, General Settings rows). Existing databases skip the full seed
+        // once permissions exist, so these must run before that early return.
+        await EnsureNewPermissionsAsync(db, logger);
+        await EnsureSystemSettingsAsync(db);
 
         // Only seed if no permissions exist (idempotent).
         // The migration seeds the default company, so we check permissions instead.
@@ -485,8 +503,155 @@ public static class DataSeeder
         AddPerms(perms, "Admin", "Role", new[] { "View", "Add", "Edit", "Delete", "Assign" });
         // Permissions
         AddPerms(perms, "Admin", "Permission", new[] { "View Matrix", "Modify Role Permissions", "Assign User Permissions" });
+        // General Settings
+        AddPerms(perms, "Admin", "Settings", new[] { "View", "Edit" });
 
         return perms;
+    }
+
+    /// <summary>
+    /// Renames legacy permission names that had redundant module prefixes in the category.
+    /// E.g. "Sales.SalesInvoice.View" → "Sales.Invoice.View".
+    /// Runs on every startup; idempotent.
+    /// </summary>
+    /// <summary>
+    /// Verifies the database schema is present before any DbSet is queried.
+    /// Two checks: (1) at least some tables exist (migrations applied at all),
+    /// (2) every table the seeder touches exists (schema version matches the code).
+    /// Throws an actionable InvalidOperationException instead of a raw 42P01.
+    /// </summary>
+    private static async Task EnsureSchemaIsCurrentAsync(AppDbContext db)
+    {
+        // (1) Any tables at all?
+        var creator = db.Database.GetService<IRelationalDatabaseCreator>();
+        if (!await creator.HasTablesAsync())
+            throw new InvalidOperationException(
+                "Database schema is empty — migrations have not been applied. " +
+                "Run 'dotnet ef database update --project src/ERP.Api' before starting the API.");
+
+        // (2) Tables the seeder depends on (add to this list when the seeder gains new tables)
+        var requiredTables = new[] { "companies", "permissions", "system_settings" };
+        var existingTables = await GetExistingTableNamesAsync(db);
+        var missing = requiredTables.Where(t => !existingTables.Contains(t)).ToList();
+        if (missing.Count > 0)
+            throw new InvalidOperationException(
+                $"Database schema is out of date; missing table(s): {string.Join(", ", missing)}. " +
+                "Apply pending migrations before starting the API " +
+                "('dotnet ef database update --project src/ERP.Api').");
+    }
+
+    private static async Task<List<string>> GetExistingTableNamesAsync(AppDbContext db)
+    {
+        var connection = db.Database.GetDbConnection();
+        if (connection.State != ConnectionState.Open)
+            await connection.OpenAsync();
+
+        await using var command = connection.CreateCommand();
+        command.CommandText = "SELECT table_name FROM information_schema.tables WHERE table_schema = current_schema()";
+        var names = new List<string>();
+        await using var reader = await command.ExecuteReaderAsync();
+        while (await reader.ReadAsync())
+        {
+            names.Add(reader.GetString(0));
+        }
+        return names;
+    }
+
+    /// <summary>
+    /// Adds permissions introduced after initial deployment. Existing databases skip the
+    /// full seed once permissions exist, so newly shipped permissions would never be
+    /// granted to the Admin role — this backfills them idempotently on every startup.
+    /// </summary>
+    private static async Task EnsureNewPermissionsAsync(AppDbContext db, ILogger logger)
+    {
+        // (name, module, category, description)
+        var shippedPermissions = new (string Name, string Module, string Category, string Description)[]
+        {
+            ("Admin.Settings.View", "Admin", "Settings", "عرض إعدادات المنظومة"),
+            ("Admin.Settings.Edit", "Admin", "Settings", "تعديل إعدادات المنظومة"),
+        };
+
+        var existingNames = await db.Permissions.Select(p => p.Name).ToListAsync();
+        var missing = shippedPermissions
+            .Where(s => !existingNames.Contains(s.Name))
+            .ToList();
+
+        if (missing.Count == 0) return;
+
+        var newPermissions = missing.Select(s => new Permission
+        {
+            Id = Guid.NewGuid(),
+            Name = s.Name,
+            Module = s.Module,
+            Category = s.Category,
+            Description = s.Description,
+            CreatedAt = DateTime.UtcNow
+        }).ToList();
+
+        db.Permissions.AddRange(newPermissions);
+
+        // Grant new permissions to the Admin role (its contract: full access)
+        var adminRole = await db.Roles.FirstOrDefaultAsync(r => r.Name == "Admin");
+        if (adminRole != null)
+        {
+            var rolePermissions = newPermissions.Select(p => new RolePermission
+            {
+                Id = Guid.NewGuid(),
+                RoleId = adminRole.Id,
+                PermissionId = p.Id,
+                CreatedAt = DateTime.UtcNow
+            });
+            db.RolePermissions.AddRange(rolePermissions);
+
+            // Admin user authorization is driven by PermissionsJson (direct permissions);
+            // keep it in sync so the admin can use new endpoints immediately.
+            var adminUser = await db.Users.FirstOrDefaultAsync(u => u.Username == "admin");
+            if (adminUser != null)
+            {
+                var direct = System.Text.Json.JsonSerializer.Deserialize<List<string>>(adminUser.PermissionsJson) ?? new List<string>();
+                var added = false;
+                foreach (var perm in newPermissions)
+                {
+                    if (!direct.Contains(perm.Name))
+                    {
+                        direct.Add(perm.Name);
+                        added = true;
+                    }
+                }
+                if (added)
+                {
+                    adminUser.PermissionsJson = System.Text.Json.JsonSerializer.Serialize(direct);
+                    adminUser.UpdatedAt = DateTime.UtcNow;
+                }
+            }
+        }
+
+        await db.SaveChangesAsync();
+        logger.LogInformation("Seeded {Count} new permission(s): {Names}",
+            newPermissions.Count, string.Join(", ", newPermissions.Select(p => p.Name)));
+    }
+
+    /// <summary>
+    /// Guarantees a SystemSetting row exists for every company so General Settings
+    /// have a concrete backing record. Absent rows read as factory defaults in code;
+    /// this materializes them. Idempotent.
+    /// </summary>
+    private static async Task EnsureSystemSettingsAsync(AppDbContext db)
+    {
+        var companyIdsWithoutSettings = await db.Companies
+            .Where(c => !db.SystemSettings.Any(s => s.CompanyId == c.Id))
+            .Select(c => c.Id)
+            .ToListAsync();
+
+        if (companyIdsWithoutSettings.Count == 0) return;
+
+        db.SystemSettings.AddRange(companyIdsWithoutSettings.Select(companyId => new SystemSetting
+        {
+            CompanyId = companyId,
+            AllowNegativeStock = false
+        }));
+
+        await db.SaveChangesAsync();
     }
 
     /// <summary>

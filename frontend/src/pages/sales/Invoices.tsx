@@ -6,6 +6,8 @@ import {
 } from '../../services/salesApi';
 import { inventoryApi, type ProductDto, type WarehouseDto } from '../../services/inventoryApi';
 import { X, Loader2 } from 'lucide-react';
+import { ConfirmDialog } from '../../components/ConfirmDialog';
+import { StatusBadge } from '../../components/StatusBadge';
 
 import { formatCurrency, formatStock, formatDate } from '../../utils/format';
 
@@ -288,6 +290,7 @@ export const Invoices: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [showBuilder, setShowBuilder] = useState(false);
   const [selectedInvoice, setSelectedInvoice] = useState<SalesInvoiceDto | null>(null);
+  const [cancelTarget, setCancelTarget] = useState<SalesInvoiceDto | null>(null);
 
   const { data: invoices = [], isLoading, error } = useQuery({
     queryKey: ['invoices', statusFilter, searchQuery],
@@ -354,13 +357,12 @@ export const Invoices: React.FC = () => {
                 {invoices.length === 0 ? (
                   <tr><td colSpan={6} className="px-5 py-12 text-center text-muted-foreground">لم يتم العثور على فواتير.</td></tr>
                 ) : invoices.map(inv => {
-                  const sc = statusConfig[inv.status];
                   return (
                     <tr key={inv.id} className="hover:bg-muted/30 cursor-pointer transition-colors" onClick={() => setSelectedInvoice(inv)}>
                       <td className="px-5 py-3 text-center font-semibold text-primary">{inv.invoiceNumber}</td>
                       <td className="px-5 py-3 text-center text-muted-foreground">{formatDate(inv.invoiceDate)}</td>
                       <td className="px-5 py-3 text-center text-foreground">{inv.customerCode} — {inv.customerName}</td>
-                      <td className="px-5 py-3 text-center"><span className={`px-2.5 py-0.5 text-[10px] font-semibold rounded-full border ${sc.bg} ${sc.text} ${sc.border}`}>{inv.statusName}</span></td>
+                      <td className="px-5 py-3 text-center"><StatusBadge status={inv.status} /></td>
                       <td className="px-5 py-3 text-center font-semibold text-emerald-500">{formatCurrency(inv.totalAmount)}</td>
                       <td className="px-5 py-3 text-center" onClick={(e) => e.stopPropagation()}>
                         {inv.status === 'Draft' && (
@@ -388,9 +390,7 @@ export const Invoices: React.FC = () => {
                 <h3 className="text-lg font-bold text-foreground">{selectedInvoice.invoiceNumber}</h3>
                 <span className="text-xs text-muted-foreground">{formatDate(selectedInvoice.invoiceDate)} — {selectedInvoice.customerName}</span>
               </div>
-              <span className={`px-3 py-1 text-xs font-semibold rounded-full border ${statusConfig[selectedInvoice.status].bg} ${statusConfig[selectedInvoice.status].text} ${statusConfig[selectedInvoice.status].border}`}>
-                {selectedInvoice.statusName}
-              </span>
+              <StatusBadge status={selectedInvoice.status} className="px-3 py-1 text-xs" />
               <button type="button" onClick={() => setSelectedInvoice(null)} aria-label="إغلاق" className="absolute left-4 top-1/2 -translate-y-1/2 p-1.5 text-muted-foreground hover:text-foreground opacity-70 hover:opacity-100 transition-all">
                 <X size={20} />
               </button>
@@ -427,10 +427,9 @@ export const Invoices: React.FC = () => {
                 </div>
               )}
               {selectedInvoice.status === 'Posted' && (
-                <button onClick={() => { if (window.confirm(`هل تريد إلغاء ${selectedInvoice.invoiceNumber}؟ سيؤدي هذا إلى عكس جميع القيود.`)) cancelMutation.mutate(selectedInvoice.id); }}
-                  disabled={cancelMutation.isPending}
-                  className="w-full px-4 py-2.5 text-sm font-semibold text-primary-foreground bg-destructive hover:bg-destructive/90 rounded-lg transition-colors disabled:opacity-50">
-                  {cancelMutation.isPending ? 'جاري الإلغاء...' : '✕ إلغاء الفاتورة'}
+                <button onClick={() => setCancelTarget(selectedInvoice)}
+                  className="w-full px-4 py-2.5 text-sm font-semibold text-primary-foreground bg-destructive hover:bg-destructive/90 rounded-lg transition-colors">
+                  ✕ إلغاء الفاتورة
                 </button>
               )}
               {(selectedInvoice.status === 'Cancelled' || selectedInvoice.status === 'Posted') && (
@@ -442,6 +441,16 @@ export const Invoices: React.FC = () => {
       )}
 
       <InvoiceBuilder isOpen={showBuilder} onClose={() => setShowBuilder(false)} customers={customers} warehouses={warehouses} products={products} />
+
+      <ConfirmDialog
+        open={cancelTarget !== null}
+        title={`تأكيد إلغاء ${cancelTarget?.invoiceNumber ?? ''}`}
+        message="هل تريد إلغاء هذه الفاتورة؟ سيؤدي هذا إلى عكس جميع القيود المحاسبية المرتبطة بها."
+        confirmLabel="تأكيد الإلغاء"
+        isPending={cancelMutation.isPending}
+        onConfirm={() => { if (cancelTarget) cancelMutation.mutate(cancelTarget.id); }}
+        onCancel={() => setCancelTarget(null)}
+      />
     </div>
   );
 };

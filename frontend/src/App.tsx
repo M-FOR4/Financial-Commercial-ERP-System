@@ -2,6 +2,7 @@ import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ToastProvider } from './components/Toast';
+import { ErrorBoundary } from './components/ErrorBoundary';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { AppLayout } from './components/AppLayout';
 import { Login } from './pages/Login';
@@ -27,6 +28,7 @@ import { AccountStatement } from './pages/reports/AccountStatement';
 import { FixedAssets } from './pages/assets/FixedAssets';
 import { Depreciation } from './pages/assets/Depreciation';
 import { Users } from './pages/settings/Users';
+import { GeneralSettings } from './pages/settings/GeneralSettings';
 import { AuditLogs } from './pages/settings/AuditLogs';
 
 const queryClient = new QueryClient({
@@ -90,7 +92,9 @@ export const App: React.FC = () => {
             element={
               <ProtectedRoute requiredPermission="Inventory.Movement.View">
                 <AppLayout>
-                  <StockMovements />
+                  <ErrorBoundary>
+                    <StockMovements />
+                  </ErrorBoundary>
                 </AppLayout>
               </ProtectedRoute>
             }
@@ -138,6 +142,7 @@ export const App: React.FC = () => {
           <Route path="/reports/account-statement" element={<ProtectedRoute requiredPermission="Accounting.GeneralLedger.ViewAccountStatement"><AppLayout><AccountStatement /></AppLayout></ProtectedRoute>} />
           <Route path="/assets" element={<ProtectedRoute requiredPermission="FixedAsset.FixedAsset.View"><AppLayout><FixedAssets /></AppLayout></ProtectedRoute>} />
           <Route path="/assets/depreciation" element={<ProtectedRoute requiredPermission="FixedAsset.FixedAsset.CalculateDepreciation"><AppLayout><Depreciation /></AppLayout></ProtectedRoute>} />
+          <Route path="/settings/general" element={<ProtectedRoute requiredPermission="Admin.Settings.View"><AppLayout><ErrorBoundary><GeneralSettings /></ErrorBoundary></AppLayout></ProtectedRoute>} />
           <Route path="/settings/users" element={<ProtectedRoute requiredPermission="Admin.User.View"><AppLayout><Users /></AppLayout></ProtectedRoute>} />
           <Route path="/settings/audit-logs" element={<ProtectedRoute requiredPermission="Reports.Reports.ViewAccountingReports"><AppLayout><AuditLogs /></AppLayout></ProtectedRoute>} />
           <Route path="*" element={<Navigate to="/" replace />} />
