@@ -54,7 +54,7 @@ interface KpiCardProps {
 const KpiCard: React.FC<KpiCardProps> = ({ title, value, subtitle, icon, trend, color }) => (
     <div className="bg-card border border-border text-card-foreground rounded-xl p-5 shadow-sm hover:shadow-md transition-shadow">
     <div className="flex items-start justify-between mb-3">
-      <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{title}</span>
+      <span className="text-xs font-semibold tracking-wider text-muted-foreground">{title}</span>
       <div className={`p-2 rounded-lg ${color}`}>{icon}</div>
     </div>
     <div className="text-2xl font-bold tracking-tight text-foreground">{value}</div>
@@ -200,7 +200,7 @@ export const Dashboard: React.FC = () => {
             <div>
               <h2 className="text-xl font-bold text-foreground">مرحباً {user?.fullName || 'مستخدم النظام'}</h2>
               <p className="text-sm text-muted-foreground mt-0.5">
-                لوحة التحكم التنفيذية — {new Date().toLocaleDateString('ar-LY', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+                لوحة التحكم التنفيذية — {new Date().toLocaleDateString('ar-EG', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
               </p>
             </div>
           </div>
@@ -393,7 +393,7 @@ export const Dashboard: React.FC = () => {
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
-              <tr className="bg-muted/40 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+              <tr className="bg-muted/40 text-[10px] font-semibold tracking-wider text-muted-foreground">
                 <th className="px-5 py-3 text-right">التاريخ</th>
                 <th className="px-5 py-3 text-right">النوع</th>
                 <th className="px-5 py-3 text-right">المرجع</th>

@@ -8,6 +8,7 @@ public interface IReportService
     Task<IncomeStatementResponse> GetIncomeStatementAsync(IncomeStatementRequest request);
     Task<BalanceSheetResponse> GetBalanceSheetAsync(BalanceSheetRequest request);
     Task<AccountStatementResponse> GetAccountStatementAsync(AccountStatementRequest request);
+    Task<GeneralLedgerResponse> GetGeneralLedgerAsync(GeneralLedgerRequest request);
     Task<StockLedgerResponse> GetStockLedgerAsync(StockLedgerRequest request);
     Task<DashboardKpiResponse> GetDashboardKpisAsync();
 }

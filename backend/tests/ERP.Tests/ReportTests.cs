@@ -55,6 +55,10 @@ public class ReportTests
         je2.Lines.Add(new JournalEntryLine { Id = Guid.NewGuid(), AccountId = cogsAcc.Id, Debit = 2000m, Credit = 0 });
         je2.Lines.Add(new JournalEntryLine { Id = Guid.NewGuid(), AccountId = cashAcc.Id, Debit = 0, Credit = 2000m });
 
+        cashAcc.Balance = 3000m; // 5000 - 2000
+        salesAcc.Balance = 5000m;
+        cogsAcc.Balance = 2000m;
+
         db.JournalEntries.AddRange(je1, je2);
         await db.SaveChangesAsync();
     }
@@ -212,5 +216,91 @@ public class ReportTests
         Assert.Equal(150m, result.TotalInbound); // 100 + 50
         Assert.Equal(30m, result.TotalOutbound);
         Assert.Equal(120m, result.EndingQuantity); // 150 - 30
+    }
+
+    [Fact]
+    public async Task GeneralLedger_ShouldComputeOpeningMovementAndClosingBalances()
+    {
+        // Arrange
+        using var db = CreateInMemoryDbContext();
+        var accountingService = new AccountingService(db, NullLogger<AccountingService>.Instance);
+        await accountingService.SeedDefaultChartOfAccountsAsync();
+
+        var cash = await db.Accounts.FirstAsync(a => a.Code == "1110");   // Asset → debit nature
+        var sales = await db.Accounts.FirstAsync(a => a.Code == "4100");  // Revenue → credit nature
+
+        var today = DateTime.UtcNow.Date;
+        var fromDate = today.AddDays(-5);
+        var toDate = today;
+
+        // Before the period: Dr Cash 1000 / Cr Sales 1000
+        var openingEntry = new JournalEntry
+        {
+            Id = Guid.NewGuid(), EntryNumber = "JE-OPEN", EntryDate = today.AddDays(-10),
+            Description = "Opening cash sale", Status = JournalEntryStatus.Posted,
+            SourceDocumentType = "SalesInvoice", PostedAt = today.AddDays(-10)
+        };
+        openingEntry.Lines.Add(new JournalEntryLine { Id = Guid.NewGuid(), AccountId = cash.Id, Debit = 1000m, Credit = 0m });
+        openingEntry.Lines.Add(new JournalEntryLine { Id = Guid.NewGuid(), AccountId = sales.Id, Debit = 0m, Credit = 1000m });
+
+        // Inside the period: Dr Cash 400 / Cr Sales 400
+        var periodEntry = new JournalEntry
+        {
+            Id = Guid.NewGuid(), EntryNumber = "JE-001", EntryDate = today.AddDays(-2),
+            Description = "Period cash sale", Status = JournalEntryStatus.Posted,
+            SourceDocumentType = "SalesInvoice", PostedAt = today.AddDays(-2)
+        };
+        periodEntry.Lines.Add(new JournalEntryLine { Id = Guid.NewGuid(), AccountId = cash.Id, Debit = 400m, Credit = 0m });
+        periodEntry.Lines.Add(new JournalEntryLine { Id = Guid.NewGuid(), AccountId = sales.Id, Debit = 0m, Credit = 400m });
+
+        // Draft entry inside the period — must NOT appear in the ledger
+        var draftEntry = new JournalEntry
+        {
+            Id = Guid.NewGuid(), EntryNumber = "JE-DRAFT", EntryDate = today.AddDays(-1),
+            Description = "Unposted draft", Status = JournalEntryStatus.Draft
+        };
+        draftEntry.Lines.Add(new JournalEntryLine { Id = Guid.NewGuid(), AccountId = cash.Id, Debit = 9999m, Credit = 0m });
+        draftEntry.Lines.Add(new JournalEntryLine { Id = Guid.NewGuid(), AccountId = sales.Id, Debit = 0m, Credit = 9999m });
+
+        db.JournalEntries.AddRange(openingEntry, periodEntry, draftEntry);
+        await db.SaveChangesAsync();
+
+        var reportService = new ReportService(db);
+
+        // Act — cash (Asset, debit nature)
+        var cashLedger = await reportService.GetGeneralLedgerAsync(new GeneralLedgerRequest(cash.Id, fromDate, toDate));
+
+        // Assert
+        Assert.Equal("1110", cashLedger.AccountCode);
+        Assert.Equal("Debit", cashLedger.BalanceNature);
+        Assert.Equal(1000m, cashLedger.OpeningBalance); // carried from before the period
+        Assert.Equal(400m, cashLedger.TotalDebit);
+        Assert.Equal(0m, cashLedger.TotalCredit);
+        Assert.Equal(1400m, cashLedger.ClosingBalance);
+        Assert.Single(cashLedger.Lines); // the draft entry is excluded
+        Assert.Equal(1400m, cashLedger.Lines[0].RunningBalance);
+        Assert.Equal("JE-001", cashLedger.Lines[0].EntryNumber);
+        Assert.Equal("SalesInvoice", cashLedger.Lines[0].SourceDocumentType);
+        Assert.Contains("4100", cashLedger.Lines[0].CounterpartAccount);
+
+        // Act — sales (Revenue, credit nature): a credit balance reads positive
+        var salesLedger = await reportService.GetGeneralLedgerAsync(new GeneralLedgerRequest(sales.Id, fromDate, toDate));
+
+        // Assert
+        Assert.Equal("Credit", salesLedger.BalanceNature);
+        Assert.Equal(1000m, salesLedger.OpeningBalance);
+        Assert.Equal(0m, salesLedger.TotalDebit);
+        Assert.Equal(400m, salesLedger.TotalCredit);
+        Assert.Equal(1400m, salesLedger.ClosingBalance);
+    }
+
+    [Fact]
+    public async Task GeneralLedger_ShouldRejectUnknownAccount()
+    {
+        using var db = CreateInMemoryDbContext();
+        var reportService = new ReportService(db);
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            reportService.GetGeneralLedgerAsync(new GeneralLedgerRequest(Guid.NewGuid(), DateTime.UtcNow.AddDays(-1), DateTime.UtcNow)));
     }
 }

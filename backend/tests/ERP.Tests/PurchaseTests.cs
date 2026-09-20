@@ -19,16 +19,22 @@ public class PurchaseTests
 
     private static async Task SeedData(AppDbContext context)
     {
+        var company = new Company { Id = Guid.NewGuid(), Name = "Test Company", DefaultCurrency = "LYD" };
+        context.Companies.Add(company);
+
+        var fiscalYear = new FiscalYear { Id = Guid.NewGuid(), CompanyId = company.Id, Name = "2026", StartDate = new DateTime(2026, 1, 1), EndDate = new DateTime(2026, 12, 31), IsActive = true };
+        context.FiscalYears.Add(fiscalYear);
+
         context.Accounts.AddRange(
-            new Account { Code = "1140", Name = "Inventory", Type = AccountType.Asset, IsHeader = false },
-            new Account { Code = "2110", Name = "Accounts Payable", Type = AccountType.Liability, IsHeader = false }
+            new Account { CompanyId = company.Id, Code = "1140", Name = "Inventory", Type = AccountType.Asset, IsHeader = false },
+            new Account { CompanyId = company.Id, Code = "2110", Name = "Accounts Payable", Type = AccountType.Liability, IsHeader = false }
         );
-        context.Categories.Add(new Category { Code = "GEN", Name = "General" });
+        context.Categories.Add(new Category { CompanyId = company.Id, Code = "GEN", Name = "General" });
         await context.SaveChangesAsync();
         var cat = await context.Categories.FirstAsync();
-        context.Products.Add(new Product { SKU = "SKU-A", Name = "Product A", CategoryId = cat.Id, UnitOfMeasure = "Piece", PurchasePrice = 10m, SellingPrice = 20m, CurrentStock = 50m });
-        context.Warehouses.Add(new Warehouse { Code = "WH1", Name = "Main WH", Location = "Tripoli" });
-        context.Suppliers.Add(new Supplier { Code = "SUP-001", Name = "Test Supplier" });
+        context.Products.Add(new Product { CompanyId = company.Id, SKU = "SKU-A", Name = "Product A", CategoryId = cat.Id, UnitOfMeasure = "Piece", PurchasePrice = 10m, AvgCost = 10m, SellingPrice = 20m, CurrentStock = 50m });
+        context.Warehouses.Add(new Warehouse { CompanyId = company.Id, Code = "WH1", Name = "Main WH", Location = "Tripoli" });
+        context.Suppliers.Add(new Supplier { CompanyId = company.Id, Code = "SUP-001", Name = "Test Supplier" });
         await context.SaveChangesAsync();
     }
 

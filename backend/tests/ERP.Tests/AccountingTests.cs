@@ -40,6 +40,60 @@ public class AccountingTests
     }
 
     [Fact]
+    public async Task SuggestAccountCode_ShouldReturnNextFreeCodeInParentBlock()
+    {
+        // Arrange
+        using var context = CreateInMemoryDbContext();
+        var service = new AccountingService(context, NullLogger<AccountingService>.Instance);
+        await service.SeedDefaultChartOfAccountsAsync();
+
+        // 1100 (Current Assets) already owns 1110, 1120, 1130, 1140
+        var currentAssets = await context.Accounts.FirstAsync(a => a.Code == "1100");
+
+        // Act
+        var first = await service.SuggestAccountCodeAsync(currentAssets.Id, null);
+
+        // Assert
+        Assert.Equal("1150", first.SuggestedCode);
+        Assert.Equal(AccountType.Asset, first.Type);
+        Assert.Equal(currentAssets.Id, first.ParentId);
+
+        // The suggestion advances once the code is actually used.
+        await service.CreateAccountAsync(new CreateAccountRequest("1150", "Petty Cash", AccountType.Asset, currentAssets.Id));
+        var second = await service.SuggestAccountCodeAsync(currentAssets.Id, null);
+
+        Assert.Equal("1160", second.SuggestedCode);
+    }
+
+    [Fact]
+    public async Task SuggestAccountCode_WithoutParent_ShouldStayInAccountTypeSeries()
+    {
+        // Arrange
+        using var context = CreateInMemoryDbContext();
+        var service = new AccountingService(context, NullLogger<AccountingService>.Instance);
+        await service.SeedDefaultChartOfAccountsAsync();
+
+        // Act — 2000 (Liabilities root) already exists, so the next Liability root is 2010
+        var suggestion = await service.SuggestAccountCodeAsync(null, AccountType.Liability);
+
+        // Assert
+        Assert.Equal("2010", suggestion.SuggestedCode);
+        Assert.Equal(AccountType.Liability, suggestion.Type);
+        Assert.Null(suggestion.ParentId);
+    }
+
+    [Fact]
+    public async Task SuggestAccountCode_ShouldThrow_WhenParentDoesNotExist()
+    {
+        using var context = CreateInMemoryDbContext();
+        var service = new AccountingService(context, NullLogger<AccountingService>.Instance);
+        await service.SeedDefaultChartOfAccountsAsync();
+
+        await Assert.ThrowsAsync<InvalidOperationException>(
+            () => service.SuggestAccountCodeAsync(Guid.NewGuid(), AccountType.Asset));
+    }
+
+    [Fact]
     public async Task CreateJournalEntryDraft_ShouldThrow_WhenUnbalanced()
     {
         // Arrange

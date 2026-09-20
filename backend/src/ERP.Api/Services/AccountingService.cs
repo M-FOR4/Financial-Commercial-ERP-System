@@ -174,7 +174,15 @@ public class AccountingService : IAccountingService
 
     public async Task<AccountDto> CreateAccountAsync(CreateAccountRequest request)
     {
-        if (await _context.Accounts.AnyAsync(a => a.Code == request.Code.Trim()))
+        // Auto-generate the code when the caller omits it (auto-gen policy).
+        var code = request.Code?.Trim();
+        if (string.IsNullOrEmpty(code))
+        {
+            code = (await SuggestAccountCodeAsync(request.ParentId, request.Type)).SuggestedCode;
+            if (await _context.Accounts.AnyAsync(a => a.Code == code))
+                throw new InvalidOperationException($"An account with code '{code}' already exists.");
+        }
+        else if (await _context.Accounts.AnyAsync(a => a.Code == code))
         {
             throw new InvalidOperationException($"An account with code '{request.Code}' already exists.");
         }
@@ -191,7 +199,7 @@ public class AccountingService : IAccountingService
 
         var account = new Account
         {
-            Code = request.Code.Trim(),
+            Code = code,
             Name = request.Name.Trim(),
             Type = request.Type,
             ParentId = request.ParentId,
@@ -218,6 +226,115 @@ public class AccountingService : IAccountingService
             null,
             account.CreatedAt
         );
+    }
+
+    /// <summary>
+    /// Creates a sub-account under the given parent with the next free code in
+    /// the parent's numeric block (BUSINESS_LOGIC §3/§4: every customer/supplier
+    /// has an accounting account linked to it; ACCOUNTING_RULES §30: no
+    /// hard-coded account IDs in business logic).
+    /// </summary>
+    public async Task<Account> CreateSubAccountAsync(
+        Guid companyId, Guid parentId, string name, string codePrefix)
+    {
+        var parent = await _context.Accounts
+            .Include(a => a.Parent)
+            .FirstOrDefaultAsync(a => a.Id == parentId && a.CompanyId == companyId);
+        if (parent == null)
+            throw new InvalidOperationException($"Parent account {parentId} does not exist for this company.");
+
+        var code = await NextChildCodeAsync(parent);
+
+        var account = new Account
+        {
+            CompanyId = companyId,
+            Code = code,
+            Name = name,
+            Type = parent.Type,
+            ParentId = parent.Id,
+            IsHeader = false,
+            IsActive = true,
+            Balance = 0m,
+            CreatedAt = DateTime.UtcNow
+        };
+
+        _context.Accounts.Add(account);
+        await _context.SaveChangesAsync();
+
+        _logger.LogInformation(
+            "Sub-account '{Code}' created under parent '{ParentCode}' ({Prefix}).",
+            code, parent.Code, codePrefix);
+        return account;
+    }
+
+    /// <summary>
+    /// Finds or creates the dedicated sub-account for a customer under the
+    /// company's AR control account (default code 1130 — العملاء / المدينون)
+    /// and returns its ID. Idempotent by (parent, name).
+    /// </summary>
+    public async Task<Guid> GetOrCreateCustomerAccountAsync(Guid companyId, string customerName)
+    {
+        return await GetOrCreatePartySubAccountAsync(
+            companyId, AccountResolutionHelper.DefaultArAccountCode, $"{customerName} (عميل)");
+    }
+
+    /// <summary>
+    /// Finds or creates the dedicated sub-account for a supplier under the
+    /// company's AP control account (default code 2110 — الموردون / الدائنون)
+    /// and returns its ID. Idempotent by (parent, name).
+    /// </summary>
+    public async Task<Guid> GetOrCreateSupplierAccountAsync(Guid companyId, string supplierName)
+    {
+        return await GetOrCreatePartySubAccountAsync(
+            companyId, AccountResolutionHelper.DefaultApAccountCode, $"{supplierName} (مورد)");
+    }
+
+    private async Task<Guid> GetOrCreatePartySubAccountAsync(
+        Guid companyId, string controlAccountCode, string subAccountName)
+    {
+        // ACCOUNTING_RULES §30: defaults live in AccountingDefaults, not hard-coded IDs.
+        // The control-account CODE (1130/2110) is the seeded convention; resolve the
+        // actual account row per company.
+        var parentId = await AccountResolutionHelper.ResolveAccountByCodeAsync(
+            _context, companyId, controlAccountCode);
+        if (parentId == Guid.Empty)
+            throw new InvalidOperationException(
+                $"Control account '{controlAccountCode}' was not found for this company. " +
+                "Cannot create the party sub-account.");
+
+        var existing = await _context.Accounts.FirstOrDefaultAsync(a =>
+            a.ParentId == parentId && a.Name == subAccountName);
+        if (existing != null)
+            return existing.Id;
+
+        var account = await CreateSubAccountAsync(
+            companyId, parentId, subAccountName, codePrefix: "party");
+        return account.Id;
+    }
+
+    /// <summary>
+    /// Next free numeric code directly under the parent: walks the parent's
+    /// block in steps of 10 (matching the seeded chart 1110/1120/1130 …).
+    /// </summary>
+    private async Task<string> NextChildCodeAsync(Account parent)
+    {
+        if (!int.TryParse(parent.Code, out var parentCode) || parent.Code.Length < 4)
+            throw new InvalidOperationException(
+                $"Parent account code '{parent.Code}' is not numeric 4+ digit — cannot auto-generate a child code.");
+
+        const int step = 10;
+        var rangeStart = parentCode;
+        var rangeSize = (int)Math.Pow(10, parent.Code.Length - 2);
+        var taken = await GetTakenCodesAsync(rangeStart, rangeSize);
+
+        for (var candidate = rangeStart + step; candidate < rangeStart + rangeSize; candidate += step)
+        {
+            if (!taken.Contains(candidate))
+                return candidate.ToString();
+        }
+
+        throw new InvalidOperationException(
+            $"No further account codes are available under parent '{parent.Code}'.");
     }
 
     public async Task<AccountDto?> UpdateAccountAsync(Guid id, UpdateAccountRequest request)
@@ -260,6 +377,104 @@ public class AccountingService : IAccountingService
         if (account == null) return null;
 
         return new AccountBalanceDto(account.Id, account.Code, account.Name, account.Type, account.Balance);
+    }
+
+    /// <summary>
+    /// Suggests the next free account code for a new account.
+    ///
+    /// Chart-of-accounts convention (mirrors SeedDefaultChartOfAccountsAsync):
+    ///  - codes are numeric strings;
+    ///  - a parent owns the numeric block [parentCode, parentCode + 99] and its
+    ///    children are allocated in steps of 10 (1100 → 1110, 1120, 1130 …);
+    ///  - root codes are allocated per account type series (1xxx Asset,
+    ///    2xxx Liability, 3xxx Equity, 4xxx Revenue, 5xxx Expense).
+    ///
+    /// The suggestion is deterministic: highest existing child (or the parent
+    /// itself when it has no children) advanced by one step, skipping any code
+    /// that is already taken by another account.
+    /// </summary>
+    public async Task<SuggestAccountCodeDto> SuggestAccountCodeAsync(Guid? parentId, AccountType? type)
+    {
+        Account? parent = null;
+        if (parentId.HasValue)
+        {
+            parent = await _context.Accounts
+                .AsNoTracking()
+                .FirstOrDefaultAsync(a => a.Id == parentId.Value)
+                ?? throw new InvalidOperationException("Specified parent account does not exist.");
+        }
+
+        var accountType = parent?.Type ?? type ?? AccountType.Asset;
+
+        // Codes are allocated in steps of 10 inside the parent's block so that the
+        // seeded chart (1110, 1120, 1130 …) stays consistent as users add accounts.
+        const int step = 10;
+        int rangeStart, rangeSize;
+
+        if (parent != null)
+        {
+            if (!int.TryParse(parent.Code, out var parentCode) || parent.Code.Length < 4)
+            {
+                throw new InvalidOperationException(
+                    $"Parent account code '{parent.Code}' is not a numeric 4+ digit code — the next code cannot be suggested automatically.");
+            }
+
+            rangeStart = parentCode;
+            rangeSize = (int)Math.Pow(10, parent.Code.Length - 2); // 4-digit parent → codes +0…+99 (99 free slots)
+            var taken = await GetTakenCodesAsync(rangeStart, rangeSize);
+
+            for (var candidate = rangeStart + step; candidate < rangeStart + rangeSize; candidate += step)
+            {
+                if (!taken.Contains(candidate))
+                {
+                    return new SuggestAccountCodeDto(parent.Id, accountType, candidate.ToString());
+                }
+            }
+
+            throw new InvalidOperationException($"No further account codes are available under parent '{parent.Code}'.");
+        }
+
+        // Root accounts: stay inside the account-type series (1000-wide block,
+        // roots spaced 1000 apart: 1000, 2000, ... then 10-step gaps per type).
+        rangeStart = (int)accountType * 1000;
+        rangeSize = 1000;
+        var rootCodes = await GetTakenCodesAsync(rangeStart, rangeSize, rootsOnly: true, type: accountType);
+
+        var nextRoot = rootCodes.Count > 0 ? rootCodes.Max() + 1000 : rangeStart;
+        if (nextRoot < rangeStart + rangeSize && !rootCodes.Contains(nextRoot))
+        {
+            return new SuggestAccountCodeDto(null, accountType, nextRoot.ToString());
+        }
+
+        // Series exhausted at the 1000 step — fall back to the next free 10-step slice.
+        for (var candidate = rangeStart + step; candidate < rangeStart + rangeSize; candidate += step)
+        {
+            if (!rootCodes.Contains(candidate))
+            {
+                return new SuggestAccountCodeDto(null, accountType, candidate.ToString());
+            }
+        }
+
+        throw new InvalidOperationException($"No further account codes are available for {accountType} accounts.");
+    }
+
+    private async Task<List<int>> GetTakenCodesAsync(int rangeStart, int rangeSize, bool rootsOnly = false, AccountType? type = null)
+    {
+        var query = _context.Accounts.AsNoTracking().AsQueryable();
+        if (rootsOnly) query = query.Where(a => a.ParentId == null);
+        if (type.HasValue) query = query.Where(a => a.Type == type.Value);
+
+        var codes = await query.Select(a => a.Code).ToListAsync();
+
+        var result = new List<int>();
+        foreach (var code in codes)
+        {
+            if (int.TryParse(code, out var value) && value >= rangeStart && value < rangeStart + rangeSize)
+            {
+                result.Add(value);
+            }
+        }
+        return result;
     }
 
     public async Task<List<JournalEntryDto>> GetJournalEntriesAsync(

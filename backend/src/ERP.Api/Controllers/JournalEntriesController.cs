@@ -22,6 +22,7 @@ public class JournalEntriesController : ControllerBase
         _logger = logger;
     }
 
+    [HasPermission("Accounting.JournalEntry.View")]
     [HttpGet]
     public async Task<IActionResult> GetJournalEntries(
         [FromQuery] DateTime? fromDate,
@@ -33,6 +34,7 @@ public class JournalEntriesController : ControllerBase
         return Ok(entries);
     }
 
+    [HasPermission("Accounting.JournalEntry.View")]
     [HttpGet("{id:guid}")]
     public async Task<IActionResult> GetJournalEntryById(Guid id)
     {
@@ -41,6 +43,7 @@ public class JournalEntriesController : ControllerBase
         return Ok(entry);
     }
 
+    [HasPermission("Accounting.JournalEntry.Add")]
     [HttpPost]
     public async Task<IActionResult> CreateDraft([FromBody] CreateJournalEntryRequest request)
     {
@@ -55,6 +58,7 @@ public class JournalEntriesController : ControllerBase
         }
     }
 
+    [HasPermission("Accounting.JournalEntry.Edit")]
     [HttpPut("{id:guid}")]
     public async Task<IActionResult> UpdateDraft(Guid id, [FromBody] UpdateJournalEntryRequest request)
     {
@@ -70,6 +74,8 @@ public class JournalEntriesController : ControllerBase
         }
     }
 
+    // Posting a journal entry is a financial approval action — requires Approve permission.
+    [HasPermission("Accounting.JournalEntry.Approve")]
     [HttpPost("{id:guid}/post")]
     public async Task<IActionResult> Post(Guid id)
     {
@@ -92,6 +98,7 @@ public class JournalEntriesController : ControllerBase
         }
     }
 
+    [HasPermission("Accounting.JournalEntry.Cancel")]
     [HttpPost("{id:guid}/cancel")]
     public async Task<IActionResult> Cancel(Guid id)
     {

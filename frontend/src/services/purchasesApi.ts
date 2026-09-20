@@ -121,9 +121,11 @@ export const purchasesApi = {
     const qs = qp.toString();
     return api.get<SupplierDto[]>(`/api/suppliers${qs ? `?${qs}` : ''}`).then(r => r.data);
   },
-  createSupplier: (data: { code: string; name: string; phone: string | null; email: string | null; taxNumber: string | null; address: string | null; isActive: boolean }) =>
+  createSupplier: (data: { code?: string | null; name: string; phone: string | null; email: string | null; taxNumber: string | null; address: string | null; isActive: boolean }) =>
     api.post<SupplierDto>('/api/suppliers', data).then(r => r.data),
-  updateSupplier: (id: string, data: { code: string; name: string; phone: string | null; email: string | null; taxNumber: string | null; address: string | null; isActive: boolean }) =>
+  /** Next auto-generated supplier code (SUPP-0001 …) for the readonly form field. */
+  nextSupplierCode: () => api.get<{ code: string }>('/api/suppliers/next-code').then(r => r.data.code),
+  updateSupplier: (id: string, data: { code?: string | null; name: string; phone: string | null; email: string | null; taxNumber: string | null; address: string | null; isActive: boolean }) =>
     api.put<SupplierDto>(`/api/suppliers/${id}`, data).then(r => r.data),
 
   // Purchase Invoices

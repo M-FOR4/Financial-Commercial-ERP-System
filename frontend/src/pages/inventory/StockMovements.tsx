@@ -61,7 +61,7 @@ const NewMovementForm: React.FC<NewMovementFormProps> = ({ isOpen, onClose, prod
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
           {error && <div className="p-3 bg-destructive/10 border border-destructive/30 rounded-lg text-destructive text-sm">{error}</div>}
           <div>
-            <label className="block text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1.5">نوع الحركة</label>
+            <label className="block text-xs font-semibold tracking-wider text-muted-foreground mb-1.5">نوع الحركة</label>
             <div className="grid grid-cols-4 gap-2">
               {(['In', 'Out', 'Adjustment', 'Transfer'] as MovementType[]).map(t => {
                 const meta = movementMeta(t);
@@ -74,28 +74,28 @@ const NewMovementForm: React.FC<NewMovementFormProps> = ({ isOpen, onClose, prod
               })}
             </div>
           </div>
-          <div><label className="block text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1.5">الصنف</label>
+          <div><label className="block text-xs font-semibold tracking-wider text-muted-foreground mb-1.5">الصنف</label>
             <select required value={productId} onChange={e => setProductId(e.target.value)} className="w-full px-4 py-2.5 bg-input border-border rounded-lg text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring">
               <option value="">اختر الصنف...</option>{products.filter(p => p.isActive).map(p => <option key={p.id} value={p.id}>{p.sku} — {p.name} (المخزون: {formatStock(p.currentStock)})</option>)}
             </select>
             {selectedProduct && <p className="text-xs text-muted-foreground mt-1">المخزون الحالي: <span className="text-foreground font-semibold">{formatStock(selectedProduct.currentStock)} {selectedProduct.unitOfMeasure}</span></p>}
           </div>
-          <div><label className="block text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1.5">المستودع</label>
+          <div><label className="block text-xs font-semibold tracking-wider text-muted-foreground mb-1.5">المستودع</label>
             <select required value={warehouseId} onChange={e => setWarehouseId(e.target.value)} className="w-full px-4 py-2.5 bg-input border-border rounded-lg text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring">
               <option value="">اختر المستودع...</option>{warehouses.filter(w => w.isActive).map(w => <option key={w.id} value={w.id}>{w.code} — {w.name}</option>)}
             </select>
           </div>
           <div className="grid grid-cols-3 gap-4">
-            <div><label className="block text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1.5">الكمية</label>
+            <div><label className="block text-xs font-semibold tracking-wider text-muted-foreground mb-1.5">الكمية</label>
               <input type="number" min="0.0001" step="0.0001" required value={quantity} onChange={e => setQuantity(e.target.value)} className="w-full px-4 py-2.5 bg-input border-border rounded-lg text-foreground placeholder-muted-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring" /></div>
-            <div><label className="block text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1.5">تكلفة الوحدة (د.ل)</label>
+            <div><label className="block text-xs font-semibold tracking-wider text-muted-foreground mb-1.5">تكلفة الوحدة (د.ل)</label>
               <input type="number" min="0" step="0.0001" value={unitCost} onChange={e => setUnitCost(e.target.value)} className="w-full px-4 py-2.5 bg-input border-border rounded-lg text-foreground placeholder-muted-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring" /></div>
-            <div><label className="block text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1.5">التاريخ</label>
+            <div><label className="block text-xs font-semibold tracking-wider text-muted-foreground mb-1.5">التاريخ</label>
               <input type="date" required value={movementDate} onChange={e => setMovementDate(e.target.value)} className="w-full px-4 py-2.5 bg-input border-border rounded-lg text-foreground placeholder-muted-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring" /></div>
           </div>
-          <div><label className="block text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1.5">المستند المرجعي</label>
+          <div><label className="block text-xs font-semibold tracking-wider text-muted-foreground mb-1.5">المستند المرجعي</label>
             <input type="text" value={referenceDocument} onChange={e => setReferenceDocument(e.target.value)} placeholder="مثال: PO-001, SO-042" className="w-full px-4 py-2.5 bg-input border-border rounded-lg text-foreground placeholder-muted-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring" /></div>
-          <div><label className="block text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1.5">ملاحظات</label>
+          <div><label className="block text-xs font-semibold tracking-wider text-muted-foreground mb-1.5">ملاحظات</label>
             <input type="text" value={notes} onChange={e => setNotes(e.target.value)} placeholder="ملاحظات اختيارية..." className="w-full px-4 py-2.5 bg-input border-border rounded-lg text-foreground placeholder-muted-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring" /></div>
           <div className="flex gap-3 pt-2">
             <button type="button" onClick={() => { resetForm(); onClose(); }} className="flex-1 px-4 py-2.5 text-sm font-semibold text-foreground bg-muted hover:bg-accent border border-border rounded-lg transition-colors">إلغاء</button>
@@ -164,7 +164,7 @@ export const StockMovements: React.FC = () => {
       {!isLoading && !hasError && activeTab === 'status' && (
         <div className="bg-card border border-border rounded-2xl overflow-hidden shadow-sm">
           <table className="w-full text-sm">
-            <thead><tr className="bg-muted/40 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+            <thead><tr className="bg-muted/40 text-[10px] font-semibold tracking-wider text-muted-foreground">
               <th className="px-5 py-3 text-right">رمز الصنف</th><th className="px-5 py-3 text-right">الصنف</th><th className="px-5 py-3 text-right">الفئة</th><th className="px-5 py-3 text-left">إجمالي المخزون</th><th className="px-5 py-3 text-left">الحد الأدنى</th><th className="px-5 py-3 text-center">الحالة</th><th className="px-5 py-3 text-right">تفصيل المستودعات</th>
             </tr></thead>
             <tbody className="divide-y divide-border/50">
@@ -187,7 +187,7 @@ export const StockMovements: React.FC = () => {
       {!isLoading && !hasError && activeTab === 'movements' && (
         <div className="bg-card border border-border rounded-2xl overflow-hidden shadow-sm">
           <table className="w-full text-sm">
-            <thead><tr className="bg-muted/40 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+            <thead><tr className="bg-muted/40 text-[10px] font-semibold tracking-wider text-muted-foreground">
               <th className="px-5 py-3 text-right">التاريخ</th><th className="px-5 py-3 text-right">الصنف</th><th className="px-5 py-3 text-center">النوع</th><th className="px-5 py-3 text-right">المستودع</th><th className="px-5 py-3 text-left">الكمية</th><th className="px-5 py-3 text-left">تكلفة الوحدة</th><th className="px-5 py-3 text-right">المرجع</th>
             </tr></thead>
             <tbody className="divide-y divide-border/50">

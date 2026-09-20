@@ -153,6 +153,49 @@ public record StockLedgerResponse(
 );
 
 // ═══════════════════════════════════
+//  GENERAL LEDGER (دفتر الأستاذ)
+// ═══════════════════════════════════
+
+public record GeneralLedgerRequest(
+    Guid AccountId,
+    DateTime FromDate,
+    DateTime ToDate
+);
+
+/// <summary>
+/// One posted journal line of the selected account.
+/// Balance columns follow the account's NORMAL balance nature
+/// (Asset/Expense = debit side, Liability/Equity/Revenue = credit side),
+/// matching Account.Balance and AccountingService posting rules.
+/// </summary>
+public record GeneralLedgerLineDto(
+    DateTime Date,
+    string EntryNumber,
+    string? SourceDocumentType,
+    string Description,
+    string CounterpartAccount,
+    decimal Debit,
+    decimal Credit,
+    decimal RunningBalance,
+    string? UserName
+);
+
+public record GeneralLedgerResponse(
+    Guid AccountId,
+    string AccountCode,
+    string AccountName,
+    string AccountType,
+    string BalanceNature,
+    DateTime FromDate,
+    DateTime ToDate,
+    decimal OpeningBalance,
+    decimal TotalDebit,
+    decimal TotalCredit,
+    decimal ClosingBalance,
+    List<GeneralLedgerLineDto> Lines
+);
+
+// ═══════════════════════════════════
 //  REPORTS DASHBOARD KPIs
 // ═══════════════════════════════════
 

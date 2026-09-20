@@ -9,11 +9,19 @@ public class CustomerService : ICustomerService
 {
     private readonly AppDbContext _context;
     private readonly ILogger<CustomerService> _logger;
+    private readonly ICodeGeneratorService _codeGenerator;
+    private readonly IAccountingService _accountingService;
 
-    public CustomerService(AppDbContext context, ILogger<CustomerService> logger)
+    public CustomerService(
+        AppDbContext context,
+        ILogger<CustomerService> logger,
+        ICodeGeneratorService codeGenerator,
+        IAccountingService accountingService)
     {
         _context = context;
         _logger = logger;
+        _codeGenerator = codeGenerator;
+        _accountingService = accountingService;
     }
 
     public async Task<List<CustomerDto>> GetCustomersAsync(bool? activeOnly = null, string? search = null)
@@ -57,13 +65,21 @@ public class CustomerService : ICustomerService
 
     public async Task<CustomerDto> CreateCustomerAsync(CreateCustomerRequest request)
     {
-        if (await _context.Customers.AnyAsync(c => c.Code == request.Code.Trim()))
+        var name = request.Name.Trim();
+        var companyId = ResolveCompanyId();
+
+        // Auto-generate the code when the caller omits it (auto-gen policy).
+        var code = request.Code?.Trim();
+        if (string.IsNullOrEmpty(code))
+            code = await _codeGenerator.NextCustomerCodeAsync(companyId);
+        else if (await _context.Customers.AnyAsync(c => c.Code == code))
             throw new InvalidOperationException($"A customer with code '{request.Code}' already exists.");
 
         var customer = new Customer
         {
-            Code = request.Code.Trim(),
-            Name = request.Name.Trim(),
+            CompanyId = companyId,
+            Code = code,
+            Name = name,
             Phone = request.Phone?.Trim(),
             Email = request.Email?.Trim(),
             TaxNumber = request.TaxNumber?.Trim(),
@@ -75,12 +91,37 @@ public class CustomerService : ICustomerService
         _context.Customers.Add(customer);
         await _context.SaveChangesAsync();
 
+        // BUSINESS_LOGIC §3: "Customer له بطاقة مستقلة وحساب محاسبي مرتبط" —
+        // automatically create the customer's sub-account under AR (1130).
+        try
+        {
+            customer.AccountId = await _accountingService.GetOrCreateCustomerAccountAsync(
+                customer.CompanyId, name);
+            await _context.SaveChangesAsync();
+        }
+        catch (InvalidOperationException ex)
+        {
+            // Chart of Accounts not seeded / control account missing: keep the
+            // customer usable, surface the linkage problem in logs.
+            _logger.LogWarning(ex,
+                "Customer '{Code}' created without linked AR sub-account: {Message}",
+                customer.Code, ex.Message);
+        }
+
         return new CustomerDto(
             customer.Id, customer.Code, customer.Name, customer.Phone, customer.Email,
             customer.TaxNumber, customer.Address, customer.Balance, customer.IsActive,
             0, customer.CreatedAt
         );
     }
+
+    /// <summary>
+    /// Customer rows are company-scoped (CompanyId is required by the entity); the
+    /// create flow currently runs in the single-company context, so resolve it
+    /// from the first company. Kept local so the auto-code path stays testable.
+    /// </summary>
+    private Guid ResolveCompanyId() =>
+        _context.Companies.Select(c => c.Id).FirstOrDefault();
 
     public async Task<CustomerDto?> UpdateCustomerAsync(Guid id, UpdateCustomerRequest request)
     {

@@ -46,11 +46,14 @@ public class VoucherService : IVoucherService
         return cv is null ? null : MapCashVoucherToResponse(cv);
     }
 
-    public async Task<CashVoucherResponse> CreateCashVoucherAsync(CashVoucherRequest request, Guid? userId, Guid companyId)
+    public async Task<CashVoucherResponse> CreateCashVoucherAsync(CashVoucherRequest request, Guid? userId = null, Guid companyId = default)
     {
         // Validate treasury
         var treasury = await _db.Treasuries.FindAsync(request.TreasuryId)
             ?? throw new InvalidOperationException("Treasury not found.");
+
+        if (companyId == Guid.Empty)
+            companyId = treasury.CompanyId;
 
         // Validate target account
         var targetAccount = await _db.Accounts.FindAsync(request.TargetAccountId)

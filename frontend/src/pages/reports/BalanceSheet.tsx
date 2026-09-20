@@ -5,7 +5,7 @@ import { formatCurrency, formatDate } from '../../utils/format';
 const BSSection: React.FC<{ section: BalanceSheetSection; color: string }> = ({ section, color }) => {
   return (
     <div className="space-y-2">
-      <h3 className="text-sm font-bold text-muted-foreground uppercase tracking-wide">{section.title}</h3>
+      <h3 className="text-sm font-bold text-muted-foreground tracking-wide">{section.title}</h3>
       {section.lines.map((line, i) => (
         <div key={i} className="flex items-center justify-between pr-4 py-1">
           <div className="flex items-center gap-2">
@@ -16,7 +16,7 @@ const BSSection: React.FC<{ section: BalanceSheetSection; color: string }> = ({ 
         </div>
       ))}
       <div className="flex items-center justify-between pr-4 py-2 border-t border-border">
-        <span className="text-xs font-bold text-muted-foreground uppercase">الإجمالي {section.title}</span>
+        <span className="text-xs font-bold text-muted-foreground">الإجمالي {section.title}</span>
         <span className={`text-sm font-bold ${color}`}>{formatCurrency(section.total)}</span>
       </div>
     </div>
@@ -108,7 +108,7 @@ export const BalanceSheet: React.FC = () => {
               </div>
 
               <div className="border-t-2 border-border pt-3 flex items-center justify-between">
-                <span className="text-sm font-bold text-foreground uppercase">إجمالي الخصوم وحقوق الملكية</span>
+                <span className="text-sm font-bold text-foreground">إجمالي الخصوم وحقوق الملكية</span>
                 <span className="text-lg font-bold text-sky-600 dark:text-sky-400">{formatCurrency(result.totalLiabilitiesAndEquity)}</span>
               </div>
             </div>

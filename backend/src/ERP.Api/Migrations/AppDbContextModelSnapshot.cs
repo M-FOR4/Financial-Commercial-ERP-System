@@ -132,6 +132,10 @@ namespace ERP.Api.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("inventory_loss_account_id");
 
+                    b.Property<Guid?>("PurchaseDiscountAccountId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("purchase_discount_account_id");
+
                     b.Property<Guid?>("PurchasesAccountId")
                         .HasColumnType("uuid")
                         .HasColumnName("purchases_account_id");
@@ -139,6 +143,10 @@ namespace ERP.Api.Migrations
                     b.Property<Guid?>("SalesCashAccountId")
                         .HasColumnType("uuid")
                         .HasColumnName("sales_cash_account_id");
+
+                    b.Property<Guid?>("SalesDiscountAccountId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("sales_discount_account_id");
 
                     b.Property<Guid?>("SalesReturnsAccountId")
                         .HasColumnType("uuid")
@@ -151,6 +159,14 @@ namespace ERP.Api.Migrations
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("updated_at");
+
+                    b.Property<Guid?>("VatPayableAccountId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("vat_payable_account_id");
+
+                    b.Property<Guid?>("VatReceivableAccountId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("vat_receivable_account_id");
 
                     b.HasKey("Id")
                         .HasName("pk_accounting_defaults");
@@ -177,17 +193,29 @@ namespace ERP.Api.Migrations
                     b.HasIndex("InventoryLossAccountId")
                         .HasDatabaseName("ix_accounting_defaults_inventory_loss_account_id");
 
+                    b.HasIndex("PurchaseDiscountAccountId")
+                        .HasDatabaseName("ix_accounting_defaults_purchase_discount_account_id");
+
                     b.HasIndex("PurchasesAccountId")
                         .HasDatabaseName("ix_accounting_defaults_purchases_account_id");
 
                     b.HasIndex("SalesCashAccountId")
                         .HasDatabaseName("ix_accounting_defaults_sales_cash_account_id");
 
+                    b.HasIndex("SalesDiscountAccountId")
+                        .HasDatabaseName("ix_accounting_defaults_sales_discount_account_id");
+
                     b.HasIndex("SalesReturnsAccountId")
                         .HasDatabaseName("ix_accounting_defaults_sales_returns_account_id");
 
                     b.HasIndex("SalesRevenueAccountId")
                         .HasDatabaseName("ix_accounting_defaults_sales_revenue_account_id");
+
+                    b.HasIndex("VatPayableAccountId")
+                        .HasDatabaseName("ix_accounting_defaults_vat_payable_account_id");
+
+                    b.HasIndex("VatReceivableAccountId")
+                        .HasDatabaseName("ix_accounting_defaults_vat_receivable_account_id");
 
                     b.ToTable("accounting_defaults", (string)null);
                 });
@@ -1241,6 +1269,18 @@ namespace ERP.Api.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("id");
 
+                    b.Property<decimal>("AvgCost")
+                        .ValueGeneratedOnAdd()
+                        .HasPrecision(18, 4)
+                        .HasColumnType("numeric(18,4)")
+                        .HasDefaultValue(0m)
+                        .HasColumnName("avg_cost");
+
+                    b.Property<string>("Barcode")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("barcode");
+
                     b.Property<Guid>("BaseUnitId")
                         .HasColumnType("uuid")
                         .HasColumnName("base_unit_id");
@@ -1295,6 +1335,13 @@ namespace ERP.Api.Migrations
                         .HasDefaultValue(0m)
                         .HasColumnName("purchase_price");
 
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("bytea")
+                        .HasColumnName("row_version");
+
                     b.Property<string>("SKU")
                         .IsRequired()
                         .HasMaxLength(100)
@@ -1324,6 +1371,9 @@ namespace ERP.Api.Migrations
 
                     b.HasIndex("CategoryId")
                         .HasDatabaseName("ix_products_category_id");
+
+                    b.HasIndex("CompanyId", "Barcode")
+                        .HasDatabaseName("ix_products_company_id_barcode");
 
                     b.HasIndex("CompanyId", "SKU")
                         .IsUnique()
@@ -2139,6 +2189,10 @@ namespace ERP.Api.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("created_by_user_id");
 
+                    b.Property<Guid?>("DestinationWarehouseId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("destination_warehouse_id");
+
                     b.Property<DateTime>("MovementDate")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("movement_date");
@@ -2166,6 +2220,10 @@ namespace ERP.Api.Migrations
                         .HasColumnType("character varying(200)")
                         .HasColumnName("reference_document");
 
+                    b.Property<Guid?>("SourceMovementId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("source_movement_id");
+
                     b.Property<decimal>("UnitCost")
                         .HasPrecision(18, 4)
                         .HasColumnType("numeric(18,4)")
@@ -2184,6 +2242,12 @@ namespace ERP.Api.Migrations
                     b.HasIndex("CreatedByUserId")
                         .HasDatabaseName("ix_stock_movements_created_by_user_id");
 
+                    b.HasIndex("DestinationWarehouseId")
+                        .HasDatabaseName("ix_stock_movements_destination_warehouse_id");
+
+                    b.HasIndex("SourceMovementId")
+                        .HasDatabaseName("ix_stock_movements_source_movement_id");
+
                     b.HasIndex("WarehouseId")
                         .HasDatabaseName("ix_stock_movements_warehouse_id");
 
@@ -2191,6 +2255,145 @@ namespace ERP.Api.Migrations
                         .HasDatabaseName("ix_stock_movements_product_id_warehouse_id");
 
                     b.ToTable("stock_movements", (string)null);
+                });
+
+            modelBuilder.Entity("ERP.Api.Domain.Entities.StockTransfer", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid?>("BranchId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("branch_id");
+
+                    b.Property<Guid>("CompanyId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("company_id");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<Guid?>("CreatedByUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("created_by_user_id");
+
+                    b.Property<Guid>("DestinationWarehouseId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("destination_warehouse_id");
+
+                    b.Property<Guid?>("JournalEntryId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("journal_entry_id");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("notes");
+
+                    b.Property<Guid?>("PostedByUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("posted_by_user_id");
+
+                    b.Property<Guid>("SourceWarehouseId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("source_warehouse_id");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("integer")
+                        .HasColumnName("status");
+
+                    b.Property<DateTime>("TransferDate")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("transfer_date");
+
+                    b.Property<string>("TransferNumber")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("transfer_number");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.HasKey("Id")
+                        .HasName("pk_stock_transfers");
+
+                    b.HasIndex("BranchId")
+                        .HasDatabaseName("ix_stock_transfers_branch_id");
+
+                    b.HasIndex("CompanyId")
+                        .HasDatabaseName("ix_stock_transfers_company_id");
+
+                    b.HasIndex("CreatedByUserId")
+                        .HasDatabaseName("ix_stock_transfers_created_by_user_id");
+
+                    b.HasIndex("DestinationWarehouseId")
+                        .HasDatabaseName("ix_stock_transfers_destination_warehouse_id");
+
+                    b.HasIndex("JournalEntryId")
+                        .HasDatabaseName("ix_stock_transfers_journal_entry_id");
+
+                    b.HasIndex("PostedByUserId")
+                        .HasDatabaseName("ix_stock_transfers_posted_by_user_id");
+
+                    b.HasIndex("SourceWarehouseId")
+                        .HasDatabaseName("ix_stock_transfers_source_warehouse_id");
+
+                    b.HasIndex("TransferNumber")
+                        .IsUnique()
+                        .HasDatabaseName("ix_stock_transfers_transfer_number");
+
+                    b.ToTable("stock_transfers", (string)null);
+                });
+
+            modelBuilder.Entity("ERP.Api.Domain.Entities.StockTransferLine", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)")
+                        .HasColumnName("notes");
+
+                    b.Property<Guid>("ProductId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("product_id");
+
+                    b.Property<decimal>("Quantity")
+                        .HasPrecision(18, 4)
+                        .HasColumnType("numeric(18,4)")
+                        .HasColumnName("quantity");
+
+                    b.Property<Guid>("StockTransferId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("stock_transfer_id");
+
+                    b.Property<decimal>("UnitCost")
+                        .HasPrecision(18, 4)
+                        .HasColumnType("numeric(18,4)")
+                        .HasColumnName("unit_cost");
+
+                    b.HasKey("Id")
+                        .HasName("pk_stock_transfer_lines");
+
+                    b.HasIndex("ProductId")
+                        .HasDatabaseName("ix_stock_transfer_lines_product_id");
+
+                    b.HasIndex("StockTransferId")
+                        .HasDatabaseName("ix_stock_transfer_lines_stock_transfer_id");
+
+                    b.ToTable("stock_transfer_lines", (string)null);
                 });
 
             modelBuilder.Entity("ERP.Api.Domain.Entities.Supplier", b =>
@@ -2742,6 +2945,11 @@ namespace ERP.Api.Migrations
                         .HasForeignKey("InventoryLossAccountId")
                         .HasConstraintName("fk_accounting_defaults_accounts_inventory_loss_account_id");
 
+                    b.HasOne("ERP.Api.Domain.Entities.Account", "PurchaseDiscountAccount")
+                        .WithMany()
+                        .HasForeignKey("PurchaseDiscountAccountId")
+                        .HasConstraintName("fk_accounting_defaults_accounts_purchase_discount_account_id");
+
                     b.HasOne("ERP.Api.Domain.Entities.Account", "PurchasesAccount")
                         .WithMany()
                         .HasForeignKey("PurchasesAccountId")
@@ -2752,6 +2960,11 @@ namespace ERP.Api.Migrations
                         .HasForeignKey("SalesCashAccountId")
                         .HasConstraintName("fk_accounting_defaults_accounts_sales_cash_account_id");
 
+                    b.HasOne("ERP.Api.Domain.Entities.Account", "SalesDiscountAccount")
+                        .WithMany()
+                        .HasForeignKey("SalesDiscountAccountId")
+                        .HasConstraintName("fk_accounting_defaults_accounts_sales_discount_account_id");
+
                     b.HasOne("ERP.Api.Domain.Entities.Account", "SalesReturnsAccount")
                         .WithMany()
                         .HasForeignKey("SalesReturnsAccountId")
@@ -2761,6 +2974,16 @@ namespace ERP.Api.Migrations
                         .WithMany()
                         .HasForeignKey("SalesRevenueAccountId")
                         .HasConstraintName("fk_accounting_defaults_accounts_sales_revenue_account_id");
+
+                    b.HasOne("ERP.Api.Domain.Entities.Account", "VatPayableAccount")
+                        .WithMany()
+                        .HasForeignKey("VatPayableAccountId")
+                        .HasConstraintName("fk_accounting_defaults_accounts_vat_payable_account_id");
+
+                    b.HasOne("ERP.Api.Domain.Entities.Account", "VatReceivableAccount")
+                        .WithMany()
+                        .HasForeignKey("VatReceivableAccountId")
+                        .HasConstraintName("fk_accounting_defaults_accounts_vat_receivable_account_id");
 
                     b.Navigation("CogsAccount");
 
@@ -2776,13 +2999,21 @@ namespace ERP.Api.Migrations
 
                     b.Navigation("InventoryLossAccount");
 
+                    b.Navigation("PurchaseDiscountAccount");
+
                     b.Navigation("PurchasesAccount");
 
                     b.Navigation("SalesCashAccount");
 
+                    b.Navigation("SalesDiscountAccount");
+
                     b.Navigation("SalesReturnsAccount");
 
                     b.Navigation("SalesRevenueAccount");
+
+                    b.Navigation("VatPayableAccount");
+
+                    b.Navigation("VatReceivableAccount");
                 });
 
             modelBuilder.Entity("ERP.Api.Domain.Entities.AssetCategory", b =>
@@ -3606,12 +3837,24 @@ namespace ERP.Api.Migrations
                         .OnDelete(DeleteBehavior.SetNull)
                         .HasConstraintName("fk_stock_movements_users_created_by_user_id");
 
+                    b.HasOne("ERP.Api.Domain.Entities.Warehouse", "DestinationWarehouse")
+                        .WithMany()
+                        .HasForeignKey("DestinationWarehouseId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_stock_movements_warehouses_destination_warehouse_id");
+
                     b.HasOne("ERP.Api.Domain.Entities.Product", "Product")
                         .WithMany("StockMovements")
                         .HasForeignKey("ProductId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired()
                         .HasConstraintName("fk_stock_movements_products_product_id");
+
+                    b.HasOne("ERP.Api.Domain.Entities.StockMovement", "SourceMovement")
+                        .WithMany()
+                        .HasForeignKey("SourceMovementId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_stock_movements_stock_movements_source_movement_id");
 
                     b.HasOne("ERP.Api.Domain.Entities.Warehouse", "Warehouse")
                         .WithMany("StockMovements")
@@ -3624,9 +3867,96 @@ namespace ERP.Api.Migrations
 
                     b.Navigation("CreatedByUser");
 
+                    b.Navigation("DestinationWarehouse");
+
                     b.Navigation("Product");
 
+                    b.Navigation("SourceMovement");
+
                     b.Navigation("Warehouse");
+                });
+
+            modelBuilder.Entity("ERP.Api.Domain.Entities.StockTransfer", b =>
+                {
+                    b.HasOne("ERP.Api.Domain.Entities.Branch", "Branch")
+                        .WithMany()
+                        .HasForeignKey("BranchId")
+                        .OnDelete(DeleteBehavior.SetNull)
+                        .HasConstraintName("fk_stock_transfers_branches_branch_id");
+
+                    b.HasOne("ERP.Api.Domain.Entities.Company", "Company")
+                        .WithMany()
+                        .HasForeignKey("CompanyId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_stock_transfers_companies_company_id");
+
+                    b.HasOne("ERP.Api.Domain.Entities.User", "CreatedByUser")
+                        .WithMany()
+                        .HasForeignKey("CreatedByUserId")
+                        .OnDelete(DeleteBehavior.SetNull)
+                        .HasConstraintName("fk_stock_transfers_users_created_by_user_id");
+
+                    b.HasOne("ERP.Api.Domain.Entities.Warehouse", "DestinationWarehouse")
+                        .WithMany()
+                        .HasForeignKey("DestinationWarehouseId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_stock_transfers_warehouses_destination_warehouse_id");
+
+                    b.HasOne("ERP.Api.Domain.Entities.JournalEntry", "JournalEntry")
+                        .WithMany()
+                        .HasForeignKey("JournalEntryId")
+                        .OnDelete(DeleteBehavior.SetNull)
+                        .HasConstraintName("fk_stock_transfers_journal_entries_journal_entry_id");
+
+                    b.HasOne("ERP.Api.Domain.Entities.User", "PostedByUser")
+                        .WithMany()
+                        .HasForeignKey("PostedByUserId")
+                        .OnDelete(DeleteBehavior.SetNull)
+                        .HasConstraintName("fk_stock_transfers_users_posted_by_user_id");
+
+                    b.HasOne("ERP.Api.Domain.Entities.Warehouse", "SourceWarehouse")
+                        .WithMany()
+                        .HasForeignKey("SourceWarehouseId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_stock_transfers_warehouses_source_warehouse_id");
+
+                    b.Navigation("Branch");
+
+                    b.Navigation("Company");
+
+                    b.Navigation("CreatedByUser");
+
+                    b.Navigation("DestinationWarehouse");
+
+                    b.Navigation("JournalEntry");
+
+                    b.Navigation("PostedByUser");
+
+                    b.Navigation("SourceWarehouse");
+                });
+
+            modelBuilder.Entity("ERP.Api.Domain.Entities.StockTransferLine", b =>
+                {
+                    b.HasOne("ERP.Api.Domain.Entities.Product", "Product")
+                        .WithMany()
+                        .HasForeignKey("ProductId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_stock_transfer_lines_products_product_id");
+
+                    b.HasOne("ERP.Api.Domain.Entities.StockTransfer", "StockTransfer")
+                        .WithMany("Lines")
+                        .HasForeignKey("StockTransferId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_stock_transfer_lines_stock_transfers_stock_transfer_id");
+
+                    b.Navigation("Product");
+
+                    b.Navigation("StockTransfer");
                 });
 
             modelBuilder.Entity("ERP.Api.Domain.Entities.Supplier", b =>
@@ -3909,6 +4239,11 @@ namespace ERP.Api.Migrations
                 });
 
             modelBuilder.Entity("ERP.Api.Domain.Entities.SalesReturn", b =>
+                {
+                    b.Navigation("Lines");
+                });
+
+            modelBuilder.Entity("ERP.Api.Domain.Entities.StockTransfer", b =>
                 {
                     b.Navigation("Lines");
                 });

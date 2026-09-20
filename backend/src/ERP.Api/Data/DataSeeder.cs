@@ -223,6 +223,10 @@ public static class DataSeeder
             CogsAccountId = cogs?.Id,
             InventoryGainAccountId = otherIncome?.Id,
             InventoryLossAccountId = adminExpense?.Id,
+            VatPayableAccountId = accounts.FirstOrDefault(a => a.Code == "2200")?.Id,
+            VatReceivableAccountId = accounts.FirstOrDefault(a => a.Code == "1150")?.Id,
+            SalesDiscountAccountId = accounts.FirstOrDefault(a => a.Code == "4110")?.Id,
+            PurchaseDiscountAccountId = accounts.FirstOrDefault(a => a.Code == "2125")?.Id,
             CreatedAt = DateTime.UtcNow
         };
         db.AccountingDefaults.Add(accountingDefaults);
@@ -279,6 +283,7 @@ public static class DataSeeder
         var bank = new Account { CompanyId = companyId, Code = "1120", Name = "Bank Accounts (الحسابات المصرفية)", Type = AccountType.Asset, IsHeader = false, Parent = currentAssets, IsActive = true };
         var ar = new Account { CompanyId = companyId, Code = "1130", Name = "Accounts Receivable - Customers (العملاء / المدينون)", Type = AccountType.Asset, IsHeader = false, Parent = currentAssets, IsActive = true };
         var inventory = new Account { CompanyId = companyId, Code = "1140", Name = "Inventory (المخزون السلعي)", Type = AccountType.Asset, IsHeader = false, Parent = currentAssets, IsActive = true };
+        var vatReceivable = new Account { CompanyId = companyId, Code = "1150", Name = "VAT Receivable (استرداد ضريبة القيمة المضافة)", Type = AccountType.Asset, IsHeader = false, Parent = currentAssets, IsActive = true };
 
         var nonCurrentAssets = new Account { CompanyId = companyId, Code = "1200", Name = "Non-Current Assets (الأصول الثابتة)", Type = AccountType.Asset, IsHeader = true, Parent = assetsRoot, IsActive = true };
         var ppe = new Account { CompanyId = companyId, Code = "1210", Name = "Property, Plant & Equipment (الممتلكات والآلات والمعدات)", Type = AccountType.Asset, IsHeader = false, Parent = nonCurrentAssets, IsActive = true };
@@ -288,6 +293,7 @@ public static class DataSeeder
         var liabilitiesRoot = new Account { CompanyId = companyId, Code = "2000", Name = "Liabilities (الالتزامات / الخصوم)", Type = AccountType.Liability, IsHeader = true, IsActive = true };
         var currentLiabilities = new Account { CompanyId = companyId, Code = "2100", Name = "Current Liabilities (الالتزامات المتداولة)", Type = AccountType.Liability, IsHeader = true, Parent = liabilitiesRoot, IsActive = true };
         var ap = new Account { CompanyId = companyId, Code = "2110", Name = "Accounts Payable - Suppliers (الموردون / الدائنون)", Type = AccountType.Liability, IsHeader = false, Parent = currentLiabilities, IsActive = true };
+        var purchaseDiscount = new Account { CompanyId = companyId, Code = "2125", Name = "Purchase Discount (خصومات المشتريات)", Type = AccountType.Liability, IsHeader = false, Parent = currentLiabilities, IsActive = true };
         var accruedExp = new Account { CompanyId = companyId, Code = "2120", Name = "Accrued Expenses (المصروفات المستحقة)", Type = AccountType.Liability, IsHeader = false, Parent = currentLiabilities, IsActive = true };
         var shortTermLoan = new Account { CompanyId = companyId, Code = "2130", Name = "Short-Term Loans (قروض قصيرة الأجل)", Type = AccountType.Liability, IsHeader = false, Parent = currentLiabilities, IsActive = true };
 
@@ -304,16 +310,17 @@ public static class DataSeeder
         // 5000 Expenses
         var expensesRoot = new Account { CompanyId = companyId, Code = "5000", Name = "Expenses (المصروفات والتكاليف)", Type = AccountType.Expense, IsHeader = true, IsActive = true };
         var cogsAcc = new Account { CompanyId = companyId, Code = "5100", Name = "Cost of Goods Sold - COGS (تكلفة البضاعة المباعة)", Type = AccountType.Expense, IsHeader = false, Parent = expensesRoot, IsActive = true };
+        var salesDiscount = new Account { CompanyId = companyId, Code = "4110", Name = "Sales Discount (خصومات المبيعات)", Type = AccountType.Revenue, IsHeader = false, Parent = revenueRoot, IsActive = true };
         var salaries = new Account { CompanyId = companyId, Code = "5200", Name = "Salaries & Wages (المرتبات والأجور)", Type = AccountType.Expense, IsHeader = false, Parent = expensesRoot, IsActive = true };
         var rentUtilities = new Account { CompanyId = companyId, Code = "5300", Name = "Rent & Utilities (الإيجارات والمرافق)", Type = AccountType.Expense, IsHeader = false, Parent = expensesRoot, IsActive = true };
         var deprExpense = new Account { CompanyId = companyId, Code = "5400", Name = "Depreciation Expense (مصروف الإهلاك)", Type = AccountType.Expense, IsHeader = false, Parent = expensesRoot, IsActive = true };
         var adminExpense = new Account { CompanyId = companyId, Code = "5500", Name = "General & Administrative (المصروفات العمومية والإدارية)", Type = AccountType.Expense, IsHeader = false, Parent = expensesRoot, IsActive = true };
 
         db.Accounts.AddRange(
-            assetsRoot, currentAssets, cash, bank, ar, inventory, nonCurrentAssets, ppe, accumDepr,
-            liabilitiesRoot, currentLiabilities, ap, accruedExp, shortTermLoan,
+            assetsRoot, currentAssets, cash, bank, ar, inventory, vatReceivable, nonCurrentAssets, ppe, accumDepr,
+            liabilitiesRoot, currentLiabilities, ap, purchaseDiscount, accruedExp, shortTermLoan,
             equityRoot, capital, retainedEarnings,
-            revenueRoot, salesRevenue, otherIncome,
+            revenueRoot, salesRevenue, salesDiscount, otherIncome,
             expensesRoot, cogsAcc, salaries, rentUtilities, deprExpense, adminExpense
         );
 

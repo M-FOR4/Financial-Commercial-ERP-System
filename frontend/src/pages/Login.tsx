@@ -76,7 +76,7 @@ export const Login: React.FC = () => {
 
           <form className="space-y-5" onSubmit={handleSubmit}>
             <div>
-              <label className="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">
+              <label className="block text-xs font-bold tracking-wider text-slate-400 mb-2">
                 اسم المستخدم
               </label>
               <input
@@ -92,7 +92,7 @@ export const Login: React.FC = () => {
             </div>
 
             <div>
-              <label className="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">
+              <label className="block text-xs font-bold tracking-wider text-slate-400 mb-2">
                 كلمة المرور
               </label>
               <input

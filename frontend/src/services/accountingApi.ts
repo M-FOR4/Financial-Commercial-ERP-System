@@ -35,6 +35,12 @@ export interface UpdateAccountRequest {
   isActive: boolean;
 }
 
+export interface SuggestAccountCodeResponse {
+  parentId: string | null;
+  type: AccountType;
+  suggestedCode: string;
+}
+
 export interface JournalEntryLineDto {
   id: string;
   accountId: string;
@@ -97,6 +103,17 @@ export const accountingApi = {
 
   getAccountById: (id: string) =>
     api.get<AccountDto>(`/api/accounts/${id}`).then((r) => r.data),
+
+  // Next free account code for a (optional) parent account
+  suggestAccountCode: (parentId: string | null, type?: AccountType) => {
+    const params = new URLSearchParams();
+    if (parentId) params.set('parentId', parentId);
+    if (type) params.set('type', type);
+    const qs = params.toString();
+    return api
+      .get<SuggestAccountCodeResponse>(`/api/accounts/suggest-code${qs ? `?${qs}` : ''}`)
+      .then((r) => r.data);
+  },
 
   createAccount: (data: CreateAccountRequest) =>
     api.post<AccountDto>('/api/accounts', data).then((r) => r.data),

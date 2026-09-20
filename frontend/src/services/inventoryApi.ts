@@ -67,7 +67,8 @@ export interface ProductDto {
 }
 
 export interface CreateProductRequest {
-  sku: string;
+  /** Optional — auto-generated server-side when omitted. */
+  sku?: string | null;
   name: string;
   description: string | null;
   categoryId: string;
@@ -180,6 +181,8 @@ export const inventoryApi = {
   },
   getProductById: (id: string) => api.get<ProductDto>(`/api/products/${id}`).then(r => r.data),
   createProduct: (data: CreateProductRequest) => api.post<ProductDto>('/api/products', data).then(r => r.data),
+  /** Next auto-generated product SKU (PRD-0001 …) for the readonly form field. */
+  nextProductCode: () => api.get<{ code: string }>('/api/products/next-code').then(r => r.data.code),
   updateProduct: (id: string, data: UpdateProductRequest) => api.put<ProductDto>(`/api/products/${id}`, data).then(r => r.data),
 
   // Stock Movements

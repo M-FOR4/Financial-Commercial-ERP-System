@@ -53,7 +53,7 @@ export const Depreciation: React.FC = () => {
 
       {/* Run Depreciation */}
       <div className="bg-card border border-border rounded-xl p-6 shadow-sm">
-        <h2 className="text-sm font-bold text-foreground mb-4 uppercase tracking-wide">تشغيل الإهلاك</h2>
+        <h2 className="text-sm font-bold text-foreground mb-4 tracking-wide">تشغيل الإهلاك</h2>
         <div className="flex flex-wrap items-end gap-4">
           <div>
             <label className="block text-xs font-semibold text-muted-foreground mb-1">بداية الفترة</label>
@@ -98,12 +98,12 @@ export const Depreciation: React.FC = () => {
       {/* Audit Trail */}
       <div className="bg-card border border-border rounded-2xl overflow-hidden shadow-sm">
         <div className="px-5 py-4 border-b border-border">
-          <h2 className="text-sm font-bold text-foreground uppercase tracking-wide">سجل مراجعة الإهلاك</h2>
+          <h2 className="text-sm font-bold text-foreground tracking-wide">سجل مراجعة الإهلاك</h2>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
-              <tr className="bg-muted/40 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+              <tr className="bg-muted/40 text-[10px] font-semibold tracking-wider text-muted-foreground">
                 <th className="px-5 py-3 text-right">التاريخ</th>
                 <th className="px-5 py-3 text-right">الأصل</th>
                 <th className="px-5 py-3 text-right">الفترة</th>

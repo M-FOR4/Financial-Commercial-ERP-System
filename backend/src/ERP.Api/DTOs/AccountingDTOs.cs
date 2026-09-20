@@ -19,7 +19,8 @@ public record AccountDto(
 );
 
 public record CreateAccountRequest(
-    [Required, MaxLength(50)] string Code,
+    // Optional: auto-generated server-side from the parent's numeric block when omitted.
+    [MaxLength(50)] string? Code,
     [Required, MaxLength(200)] string Name,
     [Required] AccountType Type,
     Guid? ParentId,
@@ -39,6 +40,16 @@ public record AccountBalanceDto(
     string Name,
     AccountType Type,
     decimal Balance
+);
+
+/// <summary>
+/// Suggested next available account code for a new account created under
+/// (or alongside) the given parent. See AccountingService.SuggestAccountCodeAsync.
+/// </summary>
+public record SuggestAccountCodeDto(
+    Guid? ParentId,
+    AccountType Type,
+    string SuggestedCode
 );
 
 public record JournalEntryLineRequest(

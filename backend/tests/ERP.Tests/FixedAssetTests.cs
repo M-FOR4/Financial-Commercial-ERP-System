@@ -20,35 +20,44 @@ public class FixedAssetTests
 
     private static async Task<(AssetCategory category, Account assetAcc, Account accumAcc, Account deprExpAcc)> SeedCategoryAndAccounts(AppDbContext db)
     {
+        var company = new Company
+        {
+            Id = Guid.NewGuid(),
+            Name = "Test Company",
+            IsActive = true
+        };
+        db.Companies.Add(company);
+        await db.SaveChangesAsync();
+
         var assetAcc = new Account
         {
-            Id = Guid.NewGuid(), Code = "1210", Name = "Property, Plant & Equipment",
+            Id = Guid.NewGuid(), CompanyId = company.Id, Code = "1210", Name = "Property, Plant & Equipment",
             Type = AccountType.Asset, IsHeader = false, Balance = 0, IsActive = true
         };
         var accumAcc = new Account
         {
-            Id = Guid.NewGuid(), Code = "1220", Name = "Accumulated Depreciation",
+            Id = Guid.NewGuid(), CompanyId = company.Id, Code = "1220", Name = "Accumulated Depreciation",
             Type = AccountType.Asset, IsHeader = false, Balance = 0, IsActive = true
         };
         var deprExpAcc = new Account
         {
-            Id = Guid.NewGuid(), Code = "5400", Name = "Depreciation Expense",
+            Id = Guid.NewGuid(), CompanyId = company.Id, Code = "5400", Name = "Depreciation Expense",
             Type = AccountType.Expense, IsHeader = false, Balance = 0, IsActive = true
         };
         var cashAcc = new Account
         {
-            Id = Guid.NewGuid(), Code = "1110", Name = "Cash on Hand",
+            Id = Guid.NewGuid(), CompanyId = company.Id, Code = "1110", Name = "Cash on Hand",
             Type = AccountType.Asset, IsHeader = false, Balance = 100000m, IsActive = true
         };
         // Additional accounts needed for disposal logic
         var otherIncomeAcc = new Account
         {
-            Id = Guid.NewGuid(), Code = "4200", Name = "Other Income",
+            Id = Guid.NewGuid(), CompanyId = company.Id, Code = "4200", Name = "Other Income",
             Type = AccountType.Revenue, IsHeader = false, Balance = 0, IsActive = true
         };
         var adminExpAcc = new Account
         {
-            Id = Guid.NewGuid(), Code = "5500", Name = "General & Administrative",
+            Id = Guid.NewGuid(), CompanyId = company.Id, Code = "5500", Name = "General & Administrative",
             Type = AccountType.Expense, IsHeader = false, Balance = 0, IsActive = true
         };
 
@@ -58,6 +67,7 @@ public class FixedAssetTests
         var category = new AssetCategory
         {
             Id = Guid.NewGuid(),
+            CompanyId = company.Id,
             Code = "CAT-01",
             Name = "Office Equipment",
             AssetAccountId = assetAcc.Id,
@@ -73,7 +83,7 @@ public class FixedAssetTests
         var fiscalYear = new FiscalYear
         {
             Id = Guid.NewGuid(),
-            CompanyId = category.CompanyId,
+            CompanyId = company.Id,
             Name = "FY 2026",
             StartDate = new DateTime(2020, 1, 1, 0, 0, 0, DateTimeKind.Utc),
             EndDate = new DateTime(2030, 12, 31, 23, 59, 59, DateTimeKind.Utc),

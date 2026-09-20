@@ -161,6 +161,9 @@ public class FixedAssetService : IFixedAssetService
         try
         {
             // Create the asset
+            var usefulMonths = request.UsefulLifeYears * 12;
+            var monthlyDepr = usefulMonths > 0 ? (request.PurchaseCost - request.SalvageValue) / usefulMonths : 0m;
+
             var asset = new FixedAsset
             {
                 Id = Guid.NewGuid(),
@@ -172,6 +175,8 @@ public class FixedAssetService : IFixedAssetService
                 PurchaseCost = request.PurchaseCost,
                 SalvageValue = request.SalvageValue,
                 UsefulLifeYears = request.UsefulLifeYears,
+                UsefulLifeMonths = usefulMonths,
+                MonthlyDepreciation = monthlyDepr,
                 CurrentBookValue = request.PurchaseCost,
                 AccumulatedDepreciation = 0,
                 Status = AssetStatus.Active,
@@ -326,7 +331,9 @@ public class FixedAssetService : IFixedAssetService
             foreach (var asset in activeAssets)
             {
                 // SLM: MonthlyDepreciation = (PurchaseCost - SalvageValue) / (UsefulLifeYears * 12)
-                var monthlyDepr = asset.MonthlyDepreciation;
+                var monthlyDepr = asset.MonthlyDepreciation > 0 
+                    ? asset.MonthlyDepreciation 
+                    : (asset.UsefulLifeYears > 0 ? (asset.PurchaseCost - asset.SalvageValue) / (asset.UsefulLifeYears * 12) : 0m);
                 var periodDepreciation = monthlyDepr * months;
 
                 // Cap depreciation at remaining depreciable amount

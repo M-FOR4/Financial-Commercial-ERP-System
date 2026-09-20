@@ -1,11 +1,14 @@
+using ERP.Api.Common.Authorization;
 using ERP.Api.DTOs;
 using ERP.Api.Services;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace ERP.Api.Controllers;
 
 [ApiController]
 [Route("api/treasuries")]
+[Authorize]
 public class TreasuriesController : ControllerBase
 {
     private readonly ITreasuryService _treasuryService;
@@ -15,6 +18,7 @@ public class TreasuriesController : ControllerBase
         _treasuryService = treasuryService;
     }
 
+    [HasPermission("Cash.CashAccount.View")]
     [HttpGet]
     public async Task<IActionResult> GetAll()
     {
@@ -22,6 +26,7 @@ public class TreasuriesController : ControllerBase
         return Ok(treasuries);
     }
 
+    [HasPermission("Cash.CashAccount.View")]
     [HttpGet("{id:guid}")]
     public async Task<IActionResult> GetById(Guid id)
     {
@@ -30,6 +35,7 @@ public class TreasuriesController : ControllerBase
         return Ok(treasury);
     }
 
+    [HasPermission("Cash.CashAccount.Add")]
     [HttpPost]
     public async Task<IActionResult> Create([FromBody] TreasuryRequest request)
     {
@@ -44,6 +50,7 @@ public class TreasuriesController : ControllerBase
         }
     }
 
+    [HasPermission("Cash.CashAccount.Edit")]
     [HttpPut("{id:guid}")]
     public async Task<IActionResult> Update(Guid id, [FromBody] TreasuryRequest request)
     {
@@ -59,6 +66,7 @@ public class TreasuriesController : ControllerBase
         }
     }
 
+    [HasPermission("Cash.CashAccount.Delete")]
     [HttpDelete("{id:guid}")]
     public async Task<IActionResult> Delete(Guid id)
     {

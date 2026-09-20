@@ -27,6 +27,8 @@ public class AppDbContext : DbContext
     public DbSet<Product> Products => Set<Product>();
     public DbSet<ItemUnitConversion> ItemUnitConversions => Set<ItemUnitConversion>();
     public DbSet<StockMovement> StockMovements => Set<StockMovement>();
+    public DbSet<StockTransfer> StockTransfers => Set<StockTransfer>();
+    public DbSet<StockTransferLine> StockTransferLines => Set<StockTransferLine>();
     public DbSet<Customer> Customers => Set<Customer>();
     public DbSet<Supplier> Suppliers => Set<Supplier>();
     public DbSet<SalesInvoice> SalesInvoices => Set<SalesInvoice>();
@@ -194,14 +196,18 @@ modelBuilder.Entity<Warehouse>(e => {
 modelBuilder.Entity<Product>(e => {
         e.HasKey(p => p.Id);
         e.HasIndex(p => new { p.CompanyId, p.SKU }).IsUnique();
+        e.HasIndex(p => new { p.CompanyId, p.Barcode });
         e.Property(p => p.SKU).IsRequired().HasMaxLength(100);
+        e.Property(p => p.Barcode).HasMaxLength(100);
         e.Property(p => p.Name).IsRequired().HasMaxLength(300);
         e.Property(p => p.Description).HasMaxLength(1000);
         e.Property(p => p.PurchasePrice).HasPrecision(18, 4).HasDefaultValue(0m);
+        e.Property(p => p.AvgCost).HasPrecision(18, 4).HasDefaultValue(0m);
         e.Property(p => p.SellingPrice).HasPrecision(18, 4).HasDefaultValue(0m);
         e.Property(p => p.CurrentStock).HasPrecision(18, 4).HasDefaultValue(0m);
         e.Property(p => p.MinStockLevel).HasPrecision(18, 4).HasDefaultValue(0m);
         e.Property(p => p.IsActive).HasDefaultValue(true);
+        e.Property(p => p.RowVersion).IsRowVersion();
         e.HasOne(p => p.Company).WithMany(co => co.Products).HasForeignKey(p => p.CompanyId).OnDelete(DeleteBehavior.Restrict);
         e.HasOne(p => p.Category).WithMany(c => c.Products).HasForeignKey(p => p.CategoryId).OnDelete(DeleteBehavior.Restrict);
         e.HasOne(p => p.BaseUnit).WithMany().HasForeignKey(p => p.BaseUnitId).OnDelete(DeleteBehavior.Restrict);
@@ -224,8 +230,31 @@ modelBuilder.Entity<StockMovement>(e => {
         e.HasOne(sm => sm.Company).WithMany().HasForeignKey(sm => sm.CompanyId).OnDelete(DeleteBehavior.Restrict);
         e.HasOne(sm => sm.Product).WithMany(p => p.StockMovements).HasForeignKey(sm => sm.ProductId).OnDelete(DeleteBehavior.Restrict);
         e.HasOne(sm => sm.Warehouse).WithMany(w => w.StockMovements).HasForeignKey(sm => sm.WarehouseId).OnDelete(DeleteBehavior.Restrict);
+        e.HasOne(sm => sm.DestinationWarehouse).WithMany().HasForeignKey(sm => sm.DestinationWarehouseId).OnDelete(DeleteBehavior.Restrict);
+        e.HasOne(sm => sm.SourceMovement).WithMany().HasForeignKey(sm => sm.SourceMovementId).OnDelete(DeleteBehavior.Restrict);
         e.HasOne(sm => sm.CreatedByUser).WithMany().HasForeignKey(sm => sm.CreatedByUserId).OnDelete(DeleteBehavior.SetNull);
         e.HasIndex(sm => new { sm.ProductId, sm.WarehouseId });
+        });
+modelBuilder.Entity<StockTransfer>(e => {
+        e.HasKey(st => st.Id);
+        e.HasIndex(st => st.TransferNumber).IsUnique();
+        e.Property(st => st.TransferNumber).IsRequired().HasMaxLength(50);
+        e.Property(st => st.Notes).HasMaxLength(500);
+        e.HasOne(st => st.Company).WithMany().HasForeignKey(st => st.CompanyId).OnDelete(DeleteBehavior.Restrict);
+        e.HasOne(st => st.Branch).WithMany().HasForeignKey(st => st.BranchId).OnDelete(DeleteBehavior.SetNull);
+        e.HasOne(st => st.SourceWarehouse).WithMany().HasForeignKey(st => st.SourceWarehouseId).OnDelete(DeleteBehavior.Restrict);
+        e.HasOne(st => st.DestinationWarehouse).WithMany().HasForeignKey(st => st.DestinationWarehouseId).OnDelete(DeleteBehavior.Restrict);
+        e.HasOne(st => st.JournalEntry).WithMany().HasForeignKey(st => st.JournalEntryId).OnDelete(DeleteBehavior.SetNull);
+        e.HasOne(st => st.CreatedByUser).WithMany().HasForeignKey(st => st.CreatedByUserId).OnDelete(DeleteBehavior.SetNull);
+        e.HasOne(st => st.PostedByUser).WithMany().HasForeignKey(st => st.PostedByUserId).OnDelete(DeleteBehavior.SetNull);
+        e.HasMany(st => st.Lines).WithOne(l => l.StockTransfer).HasForeignKey(l => l.StockTransferId).OnDelete(DeleteBehavior.Cascade);
+        });
+modelBuilder.Entity<StockTransferLine>(e => {
+        e.HasKey(stl => stl.Id);
+        e.Property(stl => stl.Quantity).HasPrecision(18, 4);
+        e.Property(stl => stl.UnitCost).HasPrecision(18, 4);
+        e.Property(stl => stl.Notes).HasMaxLength(300);
+        e.HasOne(stl => stl.Product).WithMany().HasForeignKey(stl => stl.ProductId).OnDelete(DeleteBehavior.Restrict);
         });
 modelBuilder.Entity<Customer>(e => {
         e.HasKey(c => c.Id);

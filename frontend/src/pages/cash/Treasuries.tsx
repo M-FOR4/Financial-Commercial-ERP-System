@@ -65,15 +65,15 @@ export const Treasuries: React.FC = () => {
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div className="bg-card border border-border rounded-xl p-4">
-          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">إجمالي الخزائن</p>
+          <p className="text-xs font-semibold text-muted-foreground tracking-wide">إجمالي الخزائن</p>
           <p className="text-2xl font-bold text-foreground mt-1">{treasuries.length}</p>
         </div>
         <div className="bg-card border border-border rounded-xl p-4">
-          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">إجمالي رصيد النقد</p>
+          <p className="text-xs font-semibold text-muted-foreground tracking-wide">إجمالي رصيد النقد</p>
           <p className="text-2xl font-bold text-emerald-400 mt-1">{formatCurrency(treasuries.filter(t => t.type === 'Cash').reduce((s, t) => s + t.balance, 0))}</p>
         </div>
         <div className="bg-card border border-border rounded-xl p-4">
-          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">إجمالي رصيد البنك</p>
+          <p className="text-xs font-semibold text-muted-foreground tracking-wide">إجمالي رصيد البنك</p>
           <p className="text-2xl font-bold text-blue-400 mt-1">{formatCurrency(treasuries.filter(t => t.type === 'Bank').reduce((s, t) => s + t.balance, 0))}</p>
         </div>
       </div>
@@ -83,13 +83,13 @@ export const Treasuries: React.FC = () => {
           <table className="w-full">
             <thead>
               <tr className="border-b border-border">
-                <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase">الكود</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase">الاسم</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase">النوع</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase">الحساب الرئيسي</th>
-                <th className="px-4 py-3 text-right text-xs font-semibold text-muted-foreground uppercase">الرصيد</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase">العملة</th>
-                <th className="px-4 py-3 text-center text-xs font-semibold text-muted-foreground uppercase">الإجراءات</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground">الكود</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground">الاسم</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground">النوع</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground">الحساب الرئيسي</th>
+                <th className="px-4 py-3 text-right text-xs font-semibold text-muted-foreground">الرصيد</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground">العملة</th>
+                <th className="px-4 py-3 text-center text-xs font-semibold text-muted-foreground">الإجراءات</th>
               </tr>
             </thead>
             <tbody>

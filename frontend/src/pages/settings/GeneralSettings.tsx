@@ -163,7 +163,7 @@ export const GeneralSettings: React.FC = () => {
       {/* Active settings */}
       <div className="bg-card border border-border rounded-2xl overflow-hidden shadow-sm">
         <div className="px-5 py-4 border-b border-border bg-muted/40">
-          <h2 className="text-sm font-bold text-foreground uppercase tracking-wide">إعدادات فعالة</h2>
+          <h2 className="text-sm font-bold text-foreground tracking-wide">إعدادات فعالة</h2>
         </div>
         <div className="p-5">
           <div className="flex items-start justify-between gap-4">
@@ -186,7 +186,7 @@ export const GeneralSettings: React.FC = () => {
       {PLACEHOLDER_GROUPS.map(group => (
         <div key={group.title} className="bg-card border border-border rounded-2xl overflow-hidden shadow-sm">
           <div className="px-5 py-4 border-b border-border bg-muted/40">
-            <h2 className="text-sm font-bold text-foreground uppercase tracking-wide">{group.title}</h2>
+            <h2 className="text-sm font-bold text-foreground tracking-wide">{group.title}</h2>
           </div>
           <div className="divide-y divide-border/50">
             {group.rows.map(row => (

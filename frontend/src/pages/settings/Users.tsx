@@ -91,6 +91,7 @@ const permissionCategories: PermissionCategory[] = [
       { key: 'Accounting.JournalEntry.Add', label: 'إضافة قيد يومي' },
       { key: 'Accounting.JournalEntry.Approve', label: 'اعتماد قيد يومي' },
       { key: 'Accounting.TrialBalance.View', label: 'عرض ميزان المراجعة' },
+      { key: 'Accounting.GeneralLedger.View', label: 'عرض دفتر الأستاذ' },
       { key: 'Accounting.GeneralLedger.ViewAccountStatement', label: 'عرض كشف حساب' },
     ],
   },
@@ -150,7 +151,7 @@ const rolePresets: Record<string, string[]> = {
   Accountant: [
     'Accounting.Account.View', 'Accounting.Account.Add', 'Accounting.Account.Edit',
     'Accounting.JournalEntry.View', 'Accounting.JournalEntry.Add', 'Accounting.JournalEntry.Approve',
-    'Accounting.GeneralLedger.ViewAccountStatement', 'Accounting.TrialBalance.View',
+    'Accounting.GeneralLedger.View', 'Accounting.GeneralLedger.ViewAccountStatement', 'Accounting.TrialBalance.View',
     'Cash.CashAccount.View', 'Cash.Receipt.View', 'Cash.Receipt.Add', 'Cash.Payment.View', 'Cash.Payment.Add',
     'Cash.Transfer.View', 'Cash.Transfer.Add',
     'FixedAsset.FixedAsset.View',
@@ -412,13 +413,13 @@ export const Users: React.FC = () => {
           <table className="w-full">
             <thead>
               <tr className="border-b border-border bg-muted/40">
-                <th className="px-4 py-3 text-center text-xs font-semibold text-muted-foreground uppercase">الرمز</th>
-                <th className="px-4 py-3 text-center text-xs font-semibold text-muted-foreground uppercase">اسم المستخدم</th>
-                <th className="px-4 py-3 text-center text-xs font-semibold text-muted-foreground uppercase">الاسم الكامل</th>
-                <th className="px-4 py-3 text-center text-xs font-semibold text-muted-foreground uppercase">الدور</th>
-                <th className="px-4 py-3 text-center text-xs font-semibold text-muted-foreground uppercase">الصلاحيات</th>
-                <th className="px-4 py-3 text-center text-xs font-semibold text-muted-foreground uppercase">الحالة</th>
-                <th className="px-4 py-3 text-center text-xs font-semibold text-muted-foreground uppercase">الإجراءات</th>
+                <th className="px-4 py-3 text-center text-xs font-semibold text-muted-foreground">الرمز</th>
+                <th className="px-4 py-3 text-center text-xs font-semibold text-muted-foreground">اسم المستخدم</th>
+                <th className="px-4 py-3 text-center text-xs font-semibold text-muted-foreground">الاسم الكامل</th>
+                <th className="px-4 py-3 text-center text-xs font-semibold text-muted-foreground">الدور</th>
+                <th className="px-4 py-3 text-center text-xs font-semibold text-muted-foreground">الصلاحيات</th>
+                <th className="px-4 py-3 text-center text-xs font-semibold text-muted-foreground">الحالة</th>
+                <th className="px-4 py-3 text-center text-xs font-semibold text-muted-foreground">الإجراءات</th>
               </tr>
             </thead>
             <tbody>

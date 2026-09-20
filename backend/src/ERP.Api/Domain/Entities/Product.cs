@@ -1,3 +1,5 @@
+using System.ComponentModel.DataAnnotations;
+
 namespace ERP.Api.Domain.Entities;
 
 public class Product
@@ -16,11 +18,18 @@ public class Product
     public Guid BaseUnitId { get; set; }
     public Unit BaseUnit { get; set; } = null!;
 
+    public string? Barcode { get; set; }
+
     public decimal PurchasePrice { get; set; } = 0m;
+    public decimal AvgCost { get; set; } = 0m;
     public decimal SellingPrice { get; set; } = 0m;
     public decimal CurrentStock { get; set; } = 0m;    // Derived from StockMovements (cached)
     public decimal MinStockLevel { get; set; } = 0m;
     public bool IsActive { get; set; } = true;
+
+    [Timestamp]
+    public byte[] RowVersion { get; set; } = Array.Empty<byte>();
+
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime? UpdatedAt { get; set; }
 

@@ -9,6 +9,13 @@ interface SupplierModalProps { isOpen: boolean; onClose: () => void; supplier?: 
 const SupplierModal: React.FC<SupplierModalProps> = ({ isOpen, onClose, supplier }) => {
   const qc = useQueryClient();
   const isEdit = !!supplier;
+  // Auto-generated code suggestion for new records (readonly display field).
+  const { data: suggestedCode } = useQuery({
+    queryKey: ['nextSupplierCode', isOpen],
+    queryFn: purchasesApi.nextSupplierCode,
+    enabled: isOpen && !isEdit,
+    staleTime: 0,
+  });
   const [code, setCode] = useState(supplier?.code || '');
   const [name, setName] = useState(supplier?.name || '');
   const [phone, setPhone] = useState(supplier?.phone || '');
@@ -47,7 +54,9 @@ const SupplierModal: React.FC<SupplierModalProps> = ({ isOpen, onClose, supplier
     e.preventDefault();
     setError(null);
     const data = {
-      code: code.trim(),
+      // Creation: omit the code — the backend auto-generates the next
+      // sequential code (SUPP-0001 …) and links the AP sub-account.
+      code: isEdit ? code.trim() : null,
       name: name.trim(),
       phone: phone.trim() || null,
       email: email.trim() || null,
@@ -73,21 +82,30 @@ const SupplierModal: React.FC<SupplierModalProps> = ({ isOpen, onClose, supplier
           {error && <div className="p-3 bg-destructive/10 border border-destructive/30 rounded-lg text-destructive text-sm">{error}</div>}
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs font-bold uppercase tracking-wider text-muted-foreground mb-1.5">الكود *</label>
-              <input type="text" required value={code} onChange={(e) => setCode(e.target.value)} disabled={isEdit} placeholder="SUP-001" className="w-full px-4 py-2.5 bg-input border border-border rounded-lg text-foreground text-sm disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-ring" />
+              <label className="block text-xs font-bold tracking-wider text-muted-foreground mb-1.5">الكود</label>
+              <input
+                type="text"
+                value={isEdit ? code : (suggestedCode || '...')}
+                onChange={(e) => setCode(e.target.value)}
+                readOnly={!isEdit}
+                placeholder="SUPP-0001"
+                title={isEdit ? 'الكود غير قابل للتعديل' : 'يتم توليد الكود تلقائياً'}
+                className="w-full px-4 py-2.5 bg-muted/50 border border-border rounded-lg text-foreground text-sm cursor-not-allowed focus:outline-none"
+              />
+              {!isEdit && <p className="text-[10px] text-muted-foreground mt-1">يتم توليد الكود تلقائياً</p>}
             </div>
             <div>
-              <label className="block text-xs font-bold uppercase tracking-wider text-muted-foreground mb-1.5">الاسم *</label>
+              <label className="block text-xs font-bold tracking-wider text-muted-foreground mb-1.5">الاسم *</label>
               <input type="text" required value={name} onChange={(e) => setName(e.target.value)} placeholder="اسم المورد" className="w-full px-4 py-2.5 bg-input border border-border rounded-lg text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
             </div>
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs font-bold uppercase tracking-wider text-muted-foreground mb-1.5">الهاتف</label>
+              <label className="block text-xs font-bold tracking-wider text-muted-foreground mb-1.5">الهاتف</label>
               <input type="text" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="+218..." className="w-full px-4 py-2.5 bg-input border border-border rounded-lg text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
             </div>
             <div>
-              <label className="block text-xs font-bold uppercase tracking-wider text-muted-foreground mb-1.5">البريد الإلكتروني</label>
+              <label className="block text-xs font-bold tracking-wider text-muted-foreground mb-1.5">البريد الإلكتروني</label>
               <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="supplier@example.com" className="w-full px-4 py-2.5 bg-input border border-border rounded-lg text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
             </div>
           </div>
@@ -147,7 +165,7 @@ export const Suppliers: React.FC = () => {
         <div className="bg-card border border-border rounded-2xl overflow-hidden shadow-sm">
           <table className="w-full text-sm">
             <thead>
-              <tr className="bg-muted/40 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+              <tr className="bg-muted/40 text-[10px] font-bold tracking-wider text-muted-foreground">
                 <th className="px-5 py-3 text-right">الكود</th>
                 <th className="px-5 py-3 text-right">الاسم</th>
                 <th className="px-5 py-3 text-right">الهاتف</th>

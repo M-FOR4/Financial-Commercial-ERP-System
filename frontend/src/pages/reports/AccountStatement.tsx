@@ -151,19 +151,19 @@ export const AccountStatement: React.FC = () => {
           {/* Summary */}
           <div className="grid grid-cols-3 gap-4">
             <div className="bg-muted/30 border border-border rounded-xl p-3 text-center">
-              <p className="text-[10px] text-muted-foreground font-bold uppercase">الرصيد الافتتاحي</p>
+              <p className="text-[10px] text-muted-foreground font-bold">الرصيد الافتتاحي</p>
               <p className={`text-base font-bold mt-1 ${result.openingBalance >= 0 ? 'text-foreground' : 'text-destructive'}`}>
                 {formatCurrency(result.openingBalance)}
               </p>
             </div>
             <div className="bg-muted/30 border border-border rounded-xl p-3 text-center">
-              <p className="text-[10px] text-muted-foreground font-bold uppercase">إجمالي المدين</p>
+              <p className="text-[10px] text-muted-foreground font-bold">إجمالي المدين</p>
               <p className="text-base font-bold text-emerald-600 dark:text-emerald-400 mt-1">
                 {formatCurrency(result.totalDebit)}
               </p>
             </div>
             <div className="bg-muted/30 border border-border rounded-xl p-3 text-center">
-              <p className="text-[10px] text-muted-foreground font-bold uppercase">الرصيد الختامي</p>
+              <p className="text-[10px] text-muted-foreground font-bold">الرصيد الختامي</p>
               <p className={`text-base font-bold mt-1 ${result.closingBalance >= 0 ? 'text-foreground' : 'text-destructive'}`}>
                 {formatCurrency(result.closingBalance)}
               </p>
@@ -175,12 +175,12 @@ export const AccountStatement: React.FC = () => {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-border bg-muted/40">
-                  <th className="px-4 py-3 text-right text-xs font-bold text-muted-foreground uppercase">التاريخ</th>
-                  <th className="px-4 py-3 text-right text-xs font-bold text-muted-foreground uppercase">المرجع</th>
-                  <th className="px-4 py-3 text-right text-xs font-bold text-muted-foreground uppercase">الوصف</th>
-                  <th className="px-4 py-3 text-right text-xs font-bold text-muted-foreground uppercase">مدين</th>
-                  <th className="px-4 py-3 text-right text-xs font-bold text-muted-foreground uppercase">دائن</th>
-                  <th className="px-4 py-3 text-right text-xs font-bold text-muted-foreground uppercase">الرصيد</th>
+                  <th className="px-4 py-3 text-right text-xs font-bold text-muted-foreground">التاريخ</th>
+                  <th className="px-4 py-3 text-right text-xs font-bold text-muted-foreground">المرجع</th>
+                  <th className="px-4 py-3 text-right text-xs font-bold text-muted-foreground">الوصف</th>
+                  <th className="px-4 py-3 text-right text-xs font-bold text-muted-foreground">مدين</th>
+                  <th className="px-4 py-3 text-right text-xs font-bold text-muted-foreground">دائن</th>
+                  <th className="px-4 py-3 text-right text-xs font-bold text-muted-foreground">الرصيد</th>
                 </tr>
               </thead>
               <tbody>

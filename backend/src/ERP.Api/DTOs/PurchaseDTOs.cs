@@ -20,7 +20,8 @@ public record SupplierDto(
 );
 
 public record CreateSupplierRequest(
-    [Required, MaxLength(50)] string Code,
+    // Optional: auto-generated server-side (SUPP-0001, SUPP-0002, …) when omitted.
+    [MaxLength(50)] string? Code,
     [Required, MaxLength(300)] string Name,
     [MaxLength(50)] string? Phone,
     [MaxLength(200)] string? Email,

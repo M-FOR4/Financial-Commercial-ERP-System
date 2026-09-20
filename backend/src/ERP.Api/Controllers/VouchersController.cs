@@ -36,6 +36,7 @@ public class VouchersController : ControllerBase
     //  CASH VOUCHERS
     // ═══════════════════════════════════
 
+    [HasPermission("Cash.Receipt.View")]
     [HttpGet("cash")]
     public async Task<IActionResult> GetAllCashVouchers()
     {
@@ -43,6 +44,7 @@ public class VouchersController : ControllerBase
         return Ok(vouchers);
     }
 
+    [HasPermission("Cash.Receipt.View")]
     [HttpGet("cash/{id:guid}")]
     public async Task<IActionResult> GetCashVoucherById(Guid id)
     {
@@ -51,6 +53,7 @@ public class VouchersController : ControllerBase
         return Ok(voucher);
     }
 
+    [HasPermission("Cash.Receipt.Add")]
     [HttpPost("cash")]
     public async Task<IActionResult> CreateCashVoucher([FromBody] CashVoucherRequest request)
     {
@@ -67,6 +70,8 @@ public class VouchersController : ControllerBase
         }
     }
 
+    // Posting is a financial approval action.
+    [HasPermission("Cash.Receipt.Approve")]
     [HttpPost("cash/{id:guid}/post")]
     public async Task<IActionResult> PostCashVoucher(Guid id)
     {
@@ -82,6 +87,7 @@ public class VouchersController : ControllerBase
         }
     }
 
+    [HasPermission("Cash.Receipt.Cancel")]
     [HttpPost("cash/{id:guid}/cancel")]
     public async Task<IActionResult> CancelCashVoucher(Guid id)
     {
@@ -101,6 +107,7 @@ public class VouchersController : ControllerBase
     //  TRANSFER VOUCHERS
     // ═══════════════════════════════════
 
+    [HasPermission("Cash.Transfer.View")]
     [HttpGet("transfers")]
     public async Task<IActionResult> GetAllTransferVouchers()
     {
@@ -108,6 +115,7 @@ public class VouchersController : ControllerBase
         return Ok(transfers);
     }
 
+    [HasPermission("Cash.Transfer.View")]
     [HttpGet("transfers/{id:guid}")]
     public async Task<IActionResult> GetTransferVoucherById(Guid id)
     {
@@ -116,6 +124,7 @@ public class VouchersController : ControllerBase
         return Ok(transfer);
     }
 
+    [HasPermission("Cash.Transfer.Add")]
     [HttpPost("transfers")]
     public async Task<IActionResult> CreateTransferVoucher([FromBody] TransferVoucherRequest request)
     {
@@ -131,6 +140,8 @@ public class VouchersController : ControllerBase
         }
     }
 
+    // Posting is a financial approval action.
+    [HasPermission("Cash.Transfer.Approve")]
     [HttpPost("transfers/{id:guid}/post")]
     public async Task<IActionResult> PostTransferVoucher(Guid id)
     {
@@ -146,6 +157,7 @@ public class VouchersController : ControllerBase
         }
     }
 
+    [HasPermission("Cash.Transfer.Cancel")]
     [HttpPost("transfers/{id:guid}/cancel")]
     public async Task<IActionResult> CancelTransferVoucher(Guid id)
     {

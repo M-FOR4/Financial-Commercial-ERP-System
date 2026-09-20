@@ -20,6 +20,7 @@ public class CategoriesController : ControllerBase
         _logger = logger;
     }
 
+    [HasPermission("Inventory.Category.View")]
     [HttpGet]
     public async Task<IActionResult> GetCategories([FromQuery] bool? activeOnly)
     {
@@ -27,6 +28,7 @@ public class CategoriesController : ControllerBase
         return Ok(categories);
     }
 
+    [HasPermission("Inventory.Category.View")]
     [HttpGet("{id:guid}")]
     public async Task<IActionResult> GetCategoryById(Guid id)
     {
@@ -35,6 +37,7 @@ public class CategoriesController : ControllerBase
         return Ok(category);
     }
 
+    [HasPermission("Inventory.Category.Add")]
     [HttpPost]
     public async Task<IActionResult> CreateCategory([FromBody] CreateCategoryRequest request)
     {
@@ -49,6 +52,7 @@ public class CategoriesController : ControllerBase
         }
     }
 
+    [HasPermission("Inventory.Category.Edit")]
     [HttpPut("{id:guid}")]
     public async Task<IActionResult> UpdateCategory(Guid id, [FromBody] UpdateCategoryRequest request)
     {

@@ -12,7 +12,17 @@ public interface IAccountingService
     Task<AccountDto?> GetAccountByIdAsync(Guid id);
     Task<AccountDto> CreateAccountAsync(CreateAccountRequest request);
     Task<AccountDto?> UpdateAccountAsync(Guid id, UpdateAccountRequest request);
+
+    /// <summary>Creates a sub-account under the given parent with the next free code in its block.</summary>
+    Task<Domain.Entities.Account> CreateSubAccountAsync(Guid companyId, Guid parentId, string name, string codePrefix);
+
+    /// <summary>Finds or creates the customer's sub-account under AR (1130) and returns its ID.</summary>
+    Task<Guid> GetOrCreateCustomerAccountAsync(Guid companyId, string customerName);
+
+    /// <summary>Finds or creates the supplier's sub-account under AP (2110) and returns its ID.</summary>
+    Task<Guid> GetOrCreateSupplierAccountAsync(Guid companyId, string supplierName);
     Task<AccountBalanceDto?> GetAccountBalanceAsync(Guid id);
+    Task<SuggestAccountCodeDto> SuggestAccountCodeAsync(Guid? parentId, AccountType? type);
 
     Task<List<JournalEntryDto>> GetJournalEntriesAsync(DateTime? fromDate = null, DateTime? toDate = null, JournalEntryStatus? status = null, string? search = null);
     Task<JournalEntryDto?> GetJournalEntryByIdAsync(Guid id);

@@ -79,6 +79,34 @@ export interface AccountStatementResponse {
   totalCredit: number;
 }
 
+// General Ledger (دفتر الأستاذ)
+export interface GeneralLedgerLine {
+  date: string;
+  entryNumber: string;
+  sourceDocumentType: string | null;
+  description: string;
+  counterpartAccount: string;
+  debit: number;
+  credit: number;
+  runningBalance: number;
+  userName: string | null;
+}
+export interface GeneralLedgerResponse {
+  accountId: string;
+  accountCode: string;
+  accountName: string;
+  accountType: AccountType;
+  /** 'Debit' for Asset/Expense accounts, 'Credit' for Liability/Equity/Revenue. */
+  balanceNature: 'Debit' | 'Credit';
+  fromDate: string;
+  toDate: string;
+  openingBalance: number;
+  totalDebit: number;
+  totalCredit: number;
+  closingBalance: number;
+  lines: GeneralLedgerLine[];
+}
+
 // Dashboard KPIs
 export interface DashboardKpiResponse {
   totalRevenue: number;
@@ -103,4 +131,12 @@ export const reportsApi = {
   getIncomeStatement: (data: IncomeStatementRequest) => api.post<IncomeStatementResponse>('/api/reports/income-statement', data).then(r => r.data),
   getBalanceSheet: (data: BalanceSheetRequest) => api.post<BalanceSheetResponse>('/api/reports/balance-sheet', data).then(r => r.data),
   getAccountStatement: (data: AccountStatementRequest) => api.post<AccountStatementResponse>('/api/reports/statement', data).then(r => r.data),
+  getGeneralLedger: (params: { accountId: string; fromDate: string; toDate: string }) => {
+    const qp = new URLSearchParams({
+      account_id: params.accountId,
+      date_from: params.fromDate,
+      date_to: params.toDate,
+    });
+    return api.get<GeneralLedgerResponse>(`/api/reports/financial/general-ledger?${qp.toString()}`).then(r => r.data);
+  },
 };

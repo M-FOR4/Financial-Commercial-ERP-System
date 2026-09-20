@@ -9,14 +9,19 @@ import { Login } from './pages/Login';
 import { Dashboard } from './pages/Dashboard';
 import { Accounts } from './pages/accounting/Accounts';
 import { JournalEntries } from './pages/accounting/JournalEntries';
+import { JournalEntryPage } from './pages/accounting/JournalEntryPage';
 import { Products } from './pages/inventory/Products';
 import { StockMovements } from './pages/inventory/StockMovements';
 import { Customers } from './pages/sales/Customers';
 import { Invoices } from './pages/sales/Invoices';
+import { SalesInvoicePage } from './pages/sales/SalesInvoicePage';
 import { Returns } from './pages/sales/Returns';
+import { SalesReturnPage } from './pages/sales/SalesReturnPage';
 import { Suppliers } from './pages/purchases/Suppliers';
 import { Invoices as PurchaseInvoices } from './pages/purchases/Invoices';
+import { PurchaseInvoicePage } from './pages/purchases/PurchaseInvoicePage';
 import { Returns as PurchaseReturns } from './pages/purchases/Returns';
+import { PurchaseReturnPage } from './pages/purchases/PurchaseReturnPage';
 import { Treasuries } from './pages/cash/Treasuries';
 import { CashVouchers } from './pages/cash/CashVouchers';
 import { Transfers } from './pages/cash/Transfers';
@@ -25,6 +30,7 @@ import { TrialBalance } from './pages/reports/TrialBalance';
 import { IncomeStatement } from './pages/reports/IncomeStatement';
 import { BalanceSheet } from './pages/reports/BalanceSheet';
 import { AccountStatement } from './pages/reports/AccountStatement';
+import { GeneralLedger } from './pages/reports/GeneralLedger';
 import { FixedAssets } from './pages/assets/FixedAssets';
 import { Depreciation } from './pages/assets/Depreciation';
 import { Users } from './pages/settings/Users';
@@ -78,6 +84,30 @@ export const App: React.FC = () => {
             }
           />
           <Route
+            path="/journal-entries/new"
+            element={
+              <ProtectedRoute requiredPermission="Accounting.JournalEntry.Add">
+                <AppLayout>
+                  <ErrorBoundary>
+                    <JournalEntryPage />
+                  </ErrorBoundary>
+                </AppLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/journal-entries/:id"
+            element={
+              <ProtectedRoute requiredPermission="Accounting.JournalEntry.View">
+                <AppLayout>
+                  <ErrorBoundary>
+                    <JournalEntryPage />
+                  </ErrorBoundary>
+                </AppLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
             path="/inventory/products"
             element={
               <ProtectedRoute requiredPermission="Inventory.Item.View">
@@ -120,6 +150,30 @@ export const App: React.FC = () => {
             }
           />
           <Route
+            path="/sales/invoices/new"
+            element={
+              <ProtectedRoute requiredPermission="Sales.Invoice.Add">
+                <AppLayout>
+                  <ErrorBoundary>
+                    <SalesInvoicePage />
+                  </ErrorBoundary>
+                </AppLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/sales/invoices/:id"
+            element={
+              <ProtectedRoute requiredPermission="Sales.Invoice.View">
+                <AppLayout>
+                  <ErrorBoundary>
+                    <SalesInvoicePage />
+                  </ErrorBoundary>
+                </AppLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
             path="/sales/returns"
             element={
               <ProtectedRoute requiredPermission="Sales.Return.View">
@@ -129,9 +183,37 @@ export const App: React.FC = () => {
               </ProtectedRoute>
             }
           />
+          <Route
+            path="/sales/returns/new"
+            element={
+              <ProtectedRoute requiredPermission="Sales.Return.Add">
+                <AppLayout>
+                  <ErrorBoundary>
+                    <SalesReturnPage />
+                  </ErrorBoundary>
+                </AppLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/sales/returns/:id"
+            element={
+              <ProtectedRoute requiredPermission="Sales.Return.View">
+                <AppLayout>
+                  <ErrorBoundary>
+                    <SalesReturnPage />
+                  </ErrorBoundary>
+                </AppLayout>
+              </ProtectedRoute>
+            }
+          />
           <Route path="/purchases/suppliers" element={<ProtectedRoute requiredPermission="Supplier.Supplier.View"><AppLayout><Suppliers /></AppLayout></ProtectedRoute>} />
           <Route path="/purchases/invoices" element={<ProtectedRoute requiredPermission="Purchase.Invoice.View"><AppLayout><PurchaseInvoices /></AppLayout></ProtectedRoute>} />
+          <Route path="/purchases/invoices/new" element={<ProtectedRoute requiredPermission="Purchase.Invoice.Add"><AppLayout><ErrorBoundary><PurchaseInvoicePage /></ErrorBoundary></AppLayout></ProtectedRoute>} />
+          <Route path="/purchases/invoices/:id" element={<ProtectedRoute requiredPermission="Purchase.Invoice.View"><AppLayout><ErrorBoundary><PurchaseInvoicePage /></ErrorBoundary></AppLayout></ProtectedRoute>} />
           <Route path="/purchases/returns" element={<ProtectedRoute requiredPermission="Purchase.Return.View"><AppLayout><PurchaseReturns /></AppLayout></ProtectedRoute>} />
+          <Route path="/purchases/returns/new" element={<ProtectedRoute requiredPermission="Purchase.Return.Add"><AppLayout><ErrorBoundary><PurchaseReturnPage /></ErrorBoundary></AppLayout></ProtectedRoute>} />
+          <Route path="/purchases/returns/:id" element={<ProtectedRoute requiredPermission="Purchase.Return.View"><AppLayout><ErrorBoundary><PurchaseReturnPage /></ErrorBoundary></AppLayout></ProtectedRoute>} />
           <Route path="/cash/treasuries" element={<ProtectedRoute requiredPermission="Cash.CashAccount.View"><AppLayout><Treasuries /></AppLayout></ProtectedRoute>} />
           <Route path="/cash/vouchers" element={<ProtectedRoute requiredPermission="Cash.Receipt.View"><AppLayout><CashVouchers /></AppLayout></ProtectedRoute>} />
           <Route path="/cash/transfers" element={<ProtectedRoute requiredPermission="Cash.Transfer.View"><AppLayout><Transfers /></AppLayout></ProtectedRoute>} />
@@ -139,6 +221,7 @@ export const App: React.FC = () => {
           <Route path="/reports/trial-balance" element={<ProtectedRoute requiredPermission="Accounting.TrialBalance.View"><AppLayout><TrialBalance /></AppLayout></ProtectedRoute>} />
           <Route path="/reports/income-statement" element={<ProtectedRoute requiredPermission="Reports.Reports.ViewAccountingReports"><AppLayout><IncomeStatement /></AppLayout></ProtectedRoute>} />
           <Route path="/reports/balance-sheet" element={<ProtectedRoute requiredPermission="Reports.Reports.ViewAccountingReports"><AppLayout><BalanceSheet /></AppLayout></ProtectedRoute>} />
+          <Route path="/reports/general-ledger" element={<ProtectedRoute requiredPermission="Accounting.GeneralLedger.View"><AppLayout><GeneralLedger /></AppLayout></ProtectedRoute>} />
           <Route path="/reports/account-statement" element={<ProtectedRoute requiredPermission="Accounting.GeneralLedger.ViewAccountStatement"><AppLayout><AccountStatement /></AppLayout></ProtectedRoute>} />
           <Route path="/assets" element={<ProtectedRoute requiredPermission="FixedAsset.FixedAsset.View"><AppLayout><FixedAssets /></AppLayout></ProtectedRoute>} />
           <Route path="/assets/depreciation" element={<ProtectedRoute requiredPermission="FixedAsset.FixedAsset.CalculateDepreciation"><AppLayout><Depreciation /></AppLayout></ProtectedRoute>} />

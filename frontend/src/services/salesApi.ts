@@ -17,7 +17,8 @@ export interface CustomerDto {
 }
 
 export interface CreateCustomerRequest {
-  code: string;
+  /** Optional — auto-generated server-side when omitted. */
+  code?: string | null;
   name: string;
   phone: string | null;
   email: string | null;
@@ -132,6 +133,8 @@ export const salesApi = {
   },
   getCustomerById: (id: string) => api.get<CustomerDto>(`/api/customers/${id}`).then(r => r.data),
   createCustomer: (data: CreateCustomerRequest) => api.post<CustomerDto>('/api/customers', data).then(r => r.data),
+  /** Next auto-generated customer code (CUST-0001 …) for the readonly form field. */
+  nextCustomerCode: () => api.get<{ code: string }>('/api/customers/next-code').then(r => r.data.code),
   updateCustomer: (id: string, data: CreateCustomerRequest) => api.put<CustomerDto>(`/api/customers/${id}`, data).then(r => r.data),
 
   // Sales Invoices

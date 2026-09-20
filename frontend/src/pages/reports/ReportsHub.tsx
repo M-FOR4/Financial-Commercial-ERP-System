@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { reportsApi, type DashboardKpiResponse } from '../../services/reportsApi';
 import { formatCurrency } from '../../utils/format';
-import { Scale, BarChart3, Landmark, FileSpreadsheet } from 'lucide-react';
+import { Scale, BarChart3, Landmark, FileSpreadsheet, BookOpen } from 'lucide-react';
 
 const reportCards = [
   {
@@ -25,6 +25,13 @@ const reportCards = [
     icon: Landmark,
     route: '/reports/balance-sheet',
     colorBadge: 'bg-sky-500/10 text-sky-600 dark:text-sky-400 border-sky-500/20',
+  },
+  {
+    title: 'دفتر الأستاذ',
+    description: 'حركات كل حساب مع الحساب المقابل والرصيد الجاري والتصدير إلى Excel',
+    icon: BookOpen,
+    route: '/reports/general-ledger',
+    colorBadge: 'bg-violet-500/10 text-violet-600 dark:text-violet-400 border-violet-500/20',
   },
   {
     title: 'كشف حساب',
@@ -57,25 +64,25 @@ export const ReportsHub: React.FC = () => {
       {/* KPI Cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <div className="bg-card border border-border rounded-xl p-4 shadow-sm">
-          <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">الإيرادات (YTD)</p>
+          <p className="text-[10px] font-bold text-muted-foreground tracking-wider">الإيرادات (YTD)</p>
           <p className="text-xl font-bold text-emerald-600 dark:text-emerald-400 mt-1">
             {loading ? '...' : formatCurrency(kpis?.totalRevenue ?? 0)}
           </p>
         </div>
         <div className="bg-card border border-border rounded-xl p-4 shadow-sm">
-          <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">صافي الربح (YTD)</p>
+          <p className="text-[10px] font-bold text-muted-foreground tracking-wider">صافي الربح (YTD)</p>
           <p className={`text-xl font-bold mt-1 ${(kpis?.netProfit ?? 0) >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-destructive'}`}>
             {loading ? '...' : formatCurrency(kpis?.netProfit ?? 0)}
           </p>
         </div>
         <div className="bg-card border border-border rounded-xl p-4 shadow-sm">
-          <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">إجمالي الأصول</p>
+          <p className="text-[10px] font-bold text-muted-foreground tracking-wider">إجمالي الأصول</p>
           <p className="text-xl font-bold text-sky-600 dark:text-sky-400 mt-1">
             {loading ? '...' : formatCurrency(kpis?.totalAssets ?? 0)}
           </p>
         </div>
         <div className="bg-card border border-border rounded-xl p-4 shadow-sm">
-          <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">الرصيد النقدي</p>
+          <p className="text-[10px] font-bold text-muted-foreground tracking-wider">الرصيد النقدي</p>
           <p className="text-xl font-bold text-amber-600 dark:text-amber-400 mt-1">
             {loading ? '...' : formatCurrency(kpis?.totalCashBalance ?? 0)}
           </p>

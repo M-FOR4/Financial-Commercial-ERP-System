@@ -98,15 +98,15 @@ export const TrialBalance: React.FC = () => {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-border bg-muted/40">
-                    <th className="px-4 py-3 text-right text-xs font-bold text-muted-foreground uppercase">الكود</th>
-                    <th className="px-4 py-3 text-right text-xs font-bold text-muted-foreground uppercase">اسم الحساب</th>
-                    <th className="px-4 py-3 text-right text-xs font-bold text-muted-foreground uppercase">النوع</th>
-                    <th className="px-4 py-3 text-right text-xs font-bold text-muted-foreground uppercase">افتتاحي مدين</th>
-                    <th className="px-4 py-3 text-right text-xs font-bold text-muted-foreground uppercase">افتتاحي دائن</th>
-                    <th className="px-4 py-3 text-right text-xs font-bold text-muted-foreground uppercase">حركة مدين</th>
-                    <th className="px-4 py-3 text-right text-xs font-bold text-muted-foreground uppercase">حركة دائن</th>
-                    <th className="px-4 py-3 text-right text-xs font-bold text-muted-foreground uppercase">ختامي مدين</th>
-                    <th className="px-4 py-3 text-right text-xs font-bold text-muted-foreground uppercase">ختامي دائن</th>
+                    <th className="px-4 py-3 text-right text-xs font-bold text-muted-foreground">الكود</th>
+                    <th className="px-4 py-3 text-right text-xs font-bold text-muted-foreground">اسم الحساب</th>
+                    <th className="px-4 py-3 text-right text-xs font-bold text-muted-foreground">النوع</th>
+                    <th className="px-4 py-3 text-right text-xs font-bold text-muted-foreground">افتتاحي مدين</th>
+                    <th className="px-4 py-3 text-right text-xs font-bold text-muted-foreground">افتتاحي دائن</th>
+                    <th className="px-4 py-3 text-right text-xs font-bold text-muted-foreground">حركة مدين</th>
+                    <th className="px-4 py-3 text-right text-xs font-bold text-muted-foreground">حركة دائن</th>
+                    <th className="px-4 py-3 text-right text-xs font-bold text-muted-foreground">ختامي مدين</th>
+                    <th className="px-4 py-3 text-right text-xs font-bold text-muted-foreground">ختامي دائن</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -128,7 +128,7 @@ export const TrialBalance: React.FC = () => {
                 </tbody>
                 <tfoot>
                   <tr className="border-t-2 border-border bg-muted/50 font-bold">
-                    <td colSpan={7} className="px-4 py-3 text-right text-xs uppercase text-muted-foreground">الإجمالي</td>
+                    <td colSpan={7} className="px-4 py-3 text-right text-xs text-muted-foreground">الإجمالي</td>
                     <td className="px-4 py-3 text-right text-emerald-600 dark:text-emerald-400 font-bold">{formatNumber(result.totalDebit)}</td>
                     <td className="px-4 py-3 text-right text-emerald-600 dark:text-emerald-400 font-bold">{formatNumber(result.totalCredit)}</td>
                   </tr>

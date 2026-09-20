@@ -9,11 +9,19 @@ public class SupplierService : ISupplierService
 {
     private readonly AppDbContext _context;
     private readonly ILogger<SupplierService> _logger;
+    private readonly ICodeGeneratorService _codeGenerator;
+    private readonly IAccountingService _accountingService;
 
-    public SupplierService(AppDbContext context, ILogger<SupplierService> logger)
+    public SupplierService(
+        AppDbContext context,
+        ILogger<SupplierService> logger,
+        ICodeGeneratorService codeGenerator,
+        IAccountingService accountingService)
     {
         _context = context;
         _logger = logger;
+        _codeGenerator = codeGenerator;
+        _accountingService = accountingService;
     }
 
     public async Task<List<SupplierDto>> GetSuppliersAsync(bool? activeOnly = null, string? search = null)
@@ -46,20 +54,55 @@ public class SupplierService : ISupplierService
 
     public async Task<SupplierDto> CreateSupplierAsync(CreateSupplierRequest request)
     {
-        if (await _context.Suppliers.AnyAsync(s => s.Code == request.Code.Trim()))
+        var name = request.Name.Trim();
+        var companyId = ResolveCompanyId();
+
+        // Auto-generate the code when the caller omits it (auto-gen policy).
+        var code = request.Code?.Trim();
+        if (string.IsNullOrEmpty(code))
+            code = await _codeGenerator.NextSupplierCodeAsync(companyId);
+        else if (await _context.Suppliers.AnyAsync(s => s.Code == code))
             throw new InvalidOperationException($"A supplier with code '{request.Code}' already exists.");
 
         var supplier = new Supplier
         {
-            Code = request.Code.Trim(), Name = request.Name.Trim(),
-            Phone = request.Phone?.Trim(), Email = request.Email?.Trim(),
-            TaxNumber = request.TaxNumber?.Trim(), Address = request.Address?.Trim(),
-            IsActive = request.IsActive, CreatedAt = DateTime.UtcNow
+            CompanyId = companyId,
+            Code = code,
+            Name = name,
+            Phone = request.Phone?.Trim(),
+            Email = request.Email?.Trim(),
+            TaxNumber = request.TaxNumber?.Trim(),
+            Address = request.Address?.Trim(),
+            IsActive = request.IsActive,
+            CreatedAt = DateTime.UtcNow
         };
         _context.Suppliers.Add(supplier);
         await _context.SaveChangesAsync();
+
+        // BUSINESS_LOGIC §4: "Supplier له بطاقة مستقلة وحساب محاسبي مرتبط" —
+        // automatically create the supplier's sub-account under AP (2110).
+        try
+        {
+            supplier.AccountId = await _accountingService.GetOrCreateSupplierAccountAsync(
+                supplier.CompanyId, name);
+            await _context.SaveChangesAsync();
+        }
+        catch (InvalidOperationException ex)
+        {
+            _logger.LogWarning(ex,
+                "Supplier '{Code}' created without linked AP sub-account: {Message}",
+                supplier.Code, ex.Message);
+        }
+
         return new SupplierDto(supplier.Id, supplier.Code, supplier.Name, supplier.Phone, supplier.Email, supplier.TaxNumber, supplier.Address, supplier.Balance, supplier.IsActive, 0, supplier.CreatedAt);
     }
+
+    /// <summary>
+    /// Supplier rows are company-scoped; resolve the company from the seeded
+    /// single-company context (same convention as CustomerService).
+    /// </summary>
+    private Guid ResolveCompanyId() =>
+        _context.Companies.Select(c => c.Id).FirstOrDefault();
 
     public async Task<SupplierDto?> UpdateSupplierAsync(Guid id, CreateSupplierRequest request)
     {

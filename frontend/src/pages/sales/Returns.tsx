@@ -1,177 +1,31 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { salesApi, type SalesReturnDto, type JournalEntryStatus, type CreateSalesReturnRequest, type SalesInvoiceDto } from '../../services/salesApi';
-
-import { X } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { Plus } from 'lucide-react';
+import { salesApi, type SalesReturnDto, type JournalEntryStatus } from '../../services/salesApi';
 import { StatusBadge } from '../../components/StatusBadge';
-import { formatCurrency, formatStock, formatDate } from '../../utils/format';
+import { ConfirmDialog } from '../../components/ConfirmDialog';
+import { showSuccess, showError } from '../../lib/toast';
+import { formatCurrency, formatDate } from '../../utils/format';
 
-const statusConfig: Record<JournalEntryStatus, { bg: string; text: string; border: string; label: string }> = {
-  Draft: { bg: 'bg-amber-500/15', text: 'text-amber-400', border: 'border-amber-500/30', label: 'مسودة' },
-  Posted: { bg: 'bg-emerald-500/15', text: 'text-emerald-400', border: 'border-emerald-500/30', label: 'مرحل' },
-  Cancelled: { bg: 'bg-red-500/15', text: 'text-red-400', border: 'border-red-500/30', label: 'ملغي' },
-};
+// ═══════════════════════════════════════════════════════════
+//  SALES RETURNS LIST — /sales/returns
+//  Phoenix list: creation and detail live on dedicated
+//  full-page routes (/sales/returns/new, /sales/returns/:id).
+// ═══════════════════════════════════════════════════════════
 
-// ── Return Builder Modal ──
-
-interface ReturnBuilderProps {
-  isOpen: boolean;
-  onClose: () => void;
-}
-
-const ReturnBuilder: React.FC<ReturnBuilderProps> = ({ isOpen, onClose }) => {
-  const queryClient = useQueryClient();
-  const [invoiceNumber, setInvoiceNumber] = useState('');
-  const [selectedInvoice, setSelectedInvoice] = useState<SalesInvoiceDto | null>(null);
-  const [returnLines, setReturnLines] = useState<{ originalInvoiceLineId: string; quantity: string }[]>([]);
-  const [notes, setNotes] = useState('');
-  const [error, setError] = useState<string | null>(null);
-  const [searching, setSearching] = useState(false);
-
-  const searchMutation = useMutation({
-    mutationFn: async (invNumber: string) => {
-      const invoices = await salesApi.getInvoices({ search: invNumber });
-      return invoices.find(i => i.invoiceNumber === invNumber && i.status === 'Posted');
-    },
-    onSuccess: (invoice) => {
-      setSearching(false);
-      if (invoice) {
-        setSelectedInvoice(invoice);
-        setReturnLines(invoice.lines.map(l => ({ originalInvoiceLineId: l.id, quantity: '' })));
-        setError(null);
-      } else {
-        setError('لم يتم العثور على فاتورة مرحلة بذلك الرقم.');
-        setSelectedInvoice(null);
-      }
-    },
-    onError: () => { setSearching(false); setError('فشل البحث عن الفاتورة.'); },
-  });
-
-  const createMutation = useMutation({
-    mutationFn: (data: CreateSalesReturnRequest) => salesApi.createReturn(data),
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['returns'] }); resetForm(); onClose(); },
-    onError: (err: { response?: { data?: { message?: string } } }) => setError(err.response?.data?.message || 'فشل في إنشاء المرتجع'),
-  });
-
-  const resetForm = () => {
-    setInvoiceNumber(''); setSelectedInvoice(null); setReturnLines([]); setNotes(''); setError(null);
-  };
-
-  const handleSearch = () => {
-    if (!invoiceNumber.trim()) return;
-    setSearching(true);
-    searchMutation.mutate(invoiceNumber.trim());
-  };
-
-  const updateReturnQty = (lineId: string, qty: string) => {
-    setReturnLines(prev => prev.map(l => l.originalInvoiceLineId === lineId ? { ...l, quantity: qty } : l));
-  };
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault(); setError(null);
-    if (!selectedInvoice) { setError('يرجى البحث واختيار فاتورة أولاً.'); return; }
-    const validLines = returnLines.filter(l => parseFloat(l.quantity) > 0);
-    if (validLines.length === 0) { setError('يجب إدخال بند مرتجع واحد على الأقل بكمية > 0.'); return; }
-
-    for (const rl of validLines) {
-      const origLine = selectedInvoice.lines.find(l => l.id === rl.originalInvoiceLineId);
-      if (origLine && parseFloat(rl.quantity) > origLine.quantity) {
-        setError(`كمية المرتجع لـ ${origLine.productName} لا يمكن أن تتجاوز الكمية الأصلية (${origLine.quantity}).`);
-        return;
-      }
-    }
-
-    createMutation.mutate({
-      originalInvoiceId: selectedInvoice.id,
-      notes: notes.trim() || null,
-      lines: validLines.map(l => ({ originalInvoiceLineId: l.originalInvoiceLineId, quantity: parseFloat(l.quantity), notes: null })),
-    });
-  };
-
-  if (!isOpen) return null;
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={onClose}>
-      <div className="bg-card border border-border rounded-2xl shadow-2xl w-full max-w-3xl mx-4 max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-        <div className="px-6 py-4 border-b border-border sticky top-0 bg-card z-10">
-          <h3 className="text-lg font-bold text-foreground">مرتجع بيع جديد</h3>
-        </div>
-        <form onSubmit={handleSubmit} className="p-6 space-y-5">
-          {error && <div className="p-3 bg-destructive/10 border border-destructive/30 rounded-lg text-destructive text-sm">{error}</div>}
-
-          {/* Invoice Search */}
-          <div>
-            <label className="block text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1.5">رقم الفاتورة الأصلية</label>
-            <div className="flex gap-2">
-              <input type="text" value={invoiceNumber} onChange={(e) => setInvoiceNumber(e.target.value)} placeholder="مثال: INV-202608-0001"
-                className="flex-1 px-4 py-2.5 bg-input border-border rounded-lg text-foreground placeholder-muted-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
-              <button type="button" onClick={handleSearch} disabled={searching || !invoiceNumber.trim()}
-                className="px-4 py-2.5 text-sm font-semibold text-primary-foreground bg-primary hover:bg-primary/90 rounded-lg transition-colors disabled:opacity-50">
-                {searching ? 'جاري البحث...' : 'بحث'}
-              </button>
-            </div>
-          </div>
-
-          {/* Invoice Lines for Return */}
-          {selectedInvoice && (
-            <div>
-              <div className="bg-muted/40 rounded-lg p-3 mb-3 text-xs text-muted-foreground">
-                <span className="font-semibold text-foreground">{selectedInvoice.invoiceNumber}</span> — {selectedInvoice.customerName} — {formatDate(selectedInvoice.invoiceDate)}
-              </div>
-              <h4 className="text-sm font-semibold text-foreground mb-3">بنود المرتجع (D-029: التكلفة مقفلة على تكلفة البيع الأصلية)</h4>
-              <div className="space-y-2">
-                {returnLines.map(rl => {
-                  const origLine = selectedInvoice.lines.find(l => l.id === rl.originalInvoiceLineId);
-                  if (!origLine) return null;
-                  return (
-                    <div key={rl.originalInvoiceLineId} className="grid grid-cols-[1fr_120px_100px_120px] gap-2 items-center bg-muted/30 rounded-lg p-3">
-                      <div>
-                        <span className="text-xs text-muted-foreground mr-1">{origLine.productSKU}</span>
-                        <span className="text-sm text-foreground">{origLine.productName}</span>
-                        <span className="block text-[10px] text-muted-foreground mt-0.5">الكمية الأصلية: {formatStock(origLine.quantity)} @ {formatCurrency(origLine.unitPrice)}</span>
-                      </div>
-                      <div className="text-right text-xs text-muted-foreground">تكلفة البيع: <span className="text-amber-500">{formatCurrency(origLine.unitCostAtSale)}</span>
-                      </div>
-                      <div className="text-right text-xs text-muted-foreground">حد المرتجع الأقصى: <span className="text-foreground">{formatStock(origLine.quantity)}</span>
-                      </div>
-                      <input type="number" min="0.0001" step="0.0001" max={origLine.quantity} value={rl.quantity}
-                        onChange={(e) => updateReturnQty(rl.originalInvoiceLineId, e.target.value)}
-                        placeholder="كمية المرتجع"
-                        className="px-3 py-2 bg-input border-border rounded-lg text-foreground text-sm text-right focus:outline-none focus:ring-2 focus:ring-ring" />
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-
-          <div>
-            <label className="block text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1.5">ملاحظات</label>
-            <input type="text" value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="ملاحظات اختيارية..."
-              className="w-full px-4 py-2.5 bg-input border-border rounded-lg text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
-          </div>
-
-          <div className="flex gap-3 pt-2 border-t border-border">
-            <button type="button" onClick={() => { resetForm(); onClose(); }}
-              className="flex-1 px-4 py-2.5 text-sm font-semibold text-foreground bg-muted hover:bg-accent border border-border rounded-lg transition-colors">إلغاء</button>
-            <button type="submit" disabled={!selectedInvoice || createMutation.isPending}
-              className="flex-1 px-4 py-2.5 text-sm font-semibold text-primary-foreground bg-primary hover:bg-primary/90 rounded-lg transition-colors disabled:opacity-50">
-              {createMutation.isPending ? 'جاري الإنشاء...' : 'إنشاء المرتجع'}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
-  );
-};
-
-// ── Main Returns Page ──
+const STATUS_FILTERS: { id: JournalEntryStatus | ''; label: string }[] = [
+  { id: '', label: 'الكل' },
+  { id: 'Draft', label: 'مسودة' },
+  { id: 'Posted', label: 'مرحلة' },
+  { id: 'Cancelled', label: 'ملغاة' },
+];
 
 export const Returns: React.FC = () => {
-  const [statusFilter, setStatusFilter] = useState<JournalEntryStatus | ''>('');
-  const [showBuilder, setShowBuilder] = useState(false);
-  const [selectedReturn, setSelectedReturn] = useState<SalesReturnDto | null>(null);
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const [statusFilter, setStatusFilter] = useState<JournalEntryStatus | ''>('');
+  const [postTarget, setPostTarget] = useState<SalesReturnDto | null>(null);
 
   const { data: returns = [], isLoading, error } = useQuery({
     queryKey: ['returns', statusFilter],
@@ -180,40 +34,48 @@ export const Returns: React.FC = () => {
 
   const postMutation = useMutation({
     mutationFn: salesApi.postReturn,
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['returns'] }); setSelectedReturn(null); },
+    onSuccess: (res) => {
+      queryClient.invalidateQueries({ queryKey: ['returns'] });
+      setPostTarget(null);
+      showSuccess(res.message || 'تم ترحيل المرتجع بنجاح');
+    },
+    onError: (err: { response?: { data?: { message?: string; detail?: string } } }) =>
+      showError('تعذر ترحيل المرتجع', err.response?.data?.detail || err.response?.data?.message),
   });
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6" dir="rtl">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-foreground">مرتجعات البيع</h1>
-          <p className="text-sm text-muted-foreground mt-1">إدارة مرتجعات البيع — Decision D-029</p>
+          <p className="text-sm text-muted-foreground mt-1">إدارة مرتجعات البيع — {returns.length} مرتجع</p>
         </div>
-        <button onClick={() => setShowBuilder(true)}
+        <button onClick={() => navigate('/sales/returns/new')}
           className="px-4 py-2.5 text-sm font-semibold text-primary-foreground bg-primary hover:bg-primary/90 rounded-xl transition-colors flex items-center gap-2">
-          <span className="text-lg leading-none">+</span> مرتجع جديد
+          <Plus size={16} /> مرتجع جديد
         </button>
       </div>
 
-      <div className="bg-card border border-border rounded-xl p-4 flex gap-2">
-        <button onClick={() => setStatusFilter('')} className={`px-3 py-1.5 text-xs font-semibold rounded-lg border transition-colors ${statusFilter === '' ? 'bg-primary text-primary-foreground border-primary' : 'bg-muted text-muted-foreground border-border'}`}>الكل</button>
-        {(['Draft', 'Posted', 'Cancelled'] as JournalEntryStatus[]).map(s => {
-          const c = statusConfig[s];
-          return <button key={s} onClick={() => setStatusFilter(statusFilter === s ? '' : s)}
-            className={`px-3 py-1.5 text-xs font-semibold rounded-lg border transition-colors ${statusFilter === s ? `${c.bg} ${c.text} ${c.border}` : 'bg-muted text-muted-foreground border-border'}`}>{c.label}</button>;
-        })}
+      <div className="bg-card border border-border rounded-xl p-4 flex flex-wrap gap-2">
+        {STATUS_FILTERS.map(f => (
+          <button key={f.id || 'all'} onClick={() => setStatusFilter(f.id)}
+            className={`px-3 py-1.5 text-xs font-semibold rounded-lg border transition-colors ${
+              statusFilter === f.id
+                ? 'bg-primary text-primary-foreground border-primary'
+                : 'bg-muted text-muted-foreground border-border hover:text-foreground'
+            }`}>{f.label}</button>
+        ))}
       </div>
 
       {error && <div className="p-4 bg-destructive/10 border border-destructive/30 rounded-lg text-destructive text-sm">فشل في تحميل المرتجعات.</div>}
-      {isLoading && <div className="flex items-center justify-center p-12 text-muted-foreground space-x-3"><div className="w-5 h-5 border-2 border-primary border-t-transparent rounded-full animate-spin" /><span>جاري التحميل...</span></div>}
+      {isLoading && <div className="flex items-center justify-center p-12 text-muted-foreground gap-3"><div className="w-5 h-5 border-2 border-primary border-t-transparent rounded-full animate-spin" /><span>جاري التحميل...</span></div>}
 
       {!isLoading && !error && (
         <div className="bg-card border border-border rounded-2xl overflow-hidden">
           <div className="overflow-x-auto">
-            <table className="w-full text-sm">
+            <table className="w-full text-sm min-w-[640px]">
               <thead>
-                <tr className="bg-muted/40 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                <tr className="bg-muted/40 text-[10px] font-semibold tracking-wider text-muted-foreground">
                   <th className="px-5 py-3 text-center">رقم المرتجع</th>
                   <th className="px-5 py-3 text-center">التاريخ</th>
                   <th className="px-5 py-3 text-center">الفاتورة الأصلية</th>
@@ -226,87 +88,38 @@ export const Returns: React.FC = () => {
               <tbody className="divide-y divide-border/50">
                 {returns.length === 0 ? (
                   <tr><td colSpan={7} className="px-5 py-12 text-center text-muted-foreground">لم يتم العثور على مرتجعات.</td></tr>
-                ) : returns.map(ret => {
-                  return (
-                    <tr key={ret.id} className="hover:bg-muted/30 cursor-pointer transition-colors" onClick={() => setSelectedReturn(ret)}>
-                      <td className="px-5 py-3 text-center font-semibold text-primary">{ret.returnNumber}</td>
-                      <td className="px-5 py-3 text-center text-muted-foreground">{formatDate(ret.returnDate)}</td>
-                      <td className="px-5 py-3 text-center text-muted-foreground">{ret.originalInvoiceNumber}</td>
-                      <td className="px-5 py-3 text-center text-foreground">{ret.customerName}</td>
-                      <td className="px-5 py-3 text-center"><StatusBadge status={ret.status} /></td>
-                      <td className="px-5 py-3 text-center font-semibold text-amber-500">{formatCurrency(ret.totalAmount)}</td>
-                      <td className="px-5 py-3 text-center" onClick={(e) => e.stopPropagation()}>
-                        {ret.status === 'Draft' && (
-                          <button onClick={() => postMutation.mutate(ret.id)}
-                            className="px-2 py-1 text-[10px] font-semibold text-emerald-500 bg-emerald-500/10 border border-emerald-500/30 rounded hover:bg-emerald-500/20 transition-colors">ترحيل</button>
-                        )}
-                      </td>
-                    </tr>
-                  );
-                })}
+                ) : returns.map(ret => (
+                  <tr key={ret.id} className="hover:bg-muted/30 cursor-pointer transition-colors" onClick={() => navigate(`/sales/returns/${ret.id}`)}>
+                    <td className="px-5 py-3 text-center font-semibold text-primary">{ret.returnNumber}</td>
+                    <td className="px-5 py-3 text-center text-muted-foreground">{formatDate(ret.returnDate)}</td>
+                    <td className="px-5 py-3 text-center text-muted-foreground">{ret.originalInvoiceNumber}</td>
+                    <td className="px-5 py-3 text-center text-foreground">{ret.customerName}</td>
+                    <td className="px-5 py-3 text-center"><StatusBadge status={ret.status} /></td>
+                    <td className="px-5 py-3 text-center font-semibold text-amber-500 tabular-nums">{formatCurrency(ret.totalAmount)}</td>
+                    <td className="px-5 py-3 text-center" onClick={(e) => e.stopPropagation()}>
+                      {ret.status === 'Draft' && (
+                        <button onClick={() => setPostTarget(ret)}
+                          className="px-2 py-1 text-[10px] font-semibold text-emerald-500 bg-emerald-500/10 border border-emerald-500/30 rounded hover:bg-emerald-500/20 transition-colors">ترحيل</button>
+                      )}
+                    </td>
+                  </tr>
+                ))}
               </tbody>
             </table>
           </div>
         </div>
       )}
 
-      {/* Detail Drawer */}
-      {selectedReturn && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4" onClick={() => setSelectedReturn(null)}>
-          <div className="bg-card border border-border rounded-2xl shadow-2xl w-full max-w-2xl mx-4 max-h-[calc(100vh-4rem)] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-            <div className="px-6 py-4 border-b border-border sticky top-0 bg-card z-10 relative flex items-center justify-between pl-14">
-              <div>
-                <h3 className="text-lg font-bold text-foreground">{selectedReturn.returnNumber}</h3>
-                <span className="text-xs text-muted-foreground">الأصلي: {selectedReturn.originalInvoiceNumber} — {selectedReturn.customerName}</span>
-              </div>
-              <StatusBadge status={selectedReturn.status} className="px-3 py-1 text-xs" />
-              <button type="button" onClick={() => setSelectedReturn(null)} aria-label="إغلاق" className="absolute left-4 top-1/2 -translate-y-1/2 p-1.5 text-muted-foreground hover:text-foreground opacity-70 hover:opacity-100 transition-all">
-                <X size={20} />
-              </button>
-            </div>
-            <div className="p-6 space-y-4">
-              <div className="border border-border rounded-lg overflow-hidden">
-                <table className="w-full text-sm">
-                  <thead><tr className="bg-muted/40 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                    <th className="px-4 py-2.5 text-center">الصنف</th><th className="px-4 py-2.5 text-center">الكمية</th><th className="px-4 py-2.5 text-center">تكلفة إعادة التخزين</th><th className="px-4 py-2.5 text-center">الإجمالي</th>
-                  </tr></thead>
-                  <tbody className="divide-y divide-border/50">
-                    {selectedReturn.lines.map(l => (
-                      <tr key={l.id} className="hover:bg-muted/30">
-                        <td className="px-4 py-2.5 text-center"><span className="text-xs text-muted-foreground mr-1">{l.productSKU}</span><span className="text-foreground">{l.productName}</span></td>
-                        <td className="px-4 py-2.5 text-center">{formatStock(l.quantity)}</td>
-                        <td className="px-4 py-2.5 text-center text-amber-500">{formatCurrency(l.restockUnitCost)}</td>
-                        <td className="px-4 py-2.5 text-center font-semibold text-foreground">{formatCurrency(l.totalPrice)}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                  <tfoot><tr className="bg-muted/40 font-bold">
-                    <td className="px-4 py-2.5 text-center text-muted-foreground" colSpan={3}>الإجمالي</td>
-                    <td className="px-4 py-2.5 text-center text-amber-500">{formatCurrency(selectedReturn.totalAmount)}</td>
-                  </tr></tfoot>
-                </table>
-              </div>
-              <div className="bg-amber-500/10 border border-amber-500/30 rounded-lg p-3 text-xs text-amber-600 dark:text-amber-400">
-                <span className="font-semibold">D-029:</span> تكلفة إعادة التخزين مقفلة على تكلفة بند الفاتورة الأصلية في وقت البيع. هذا يضمن توحيد تكلفة المرتجعات مع تكلفة البيع الأصلية.
-              </div>
-              {selectedReturn.status === 'Draft' && (
-                <div className="flex gap-3">
-                  <button onClick={() => postMutation.mutate(selectedReturn.id)} disabled={postMutation.isPending}
-                    className="flex-1 px-4 py-2.5 text-sm font-semibold text-primary-foreground bg-emerald-600 hover:bg-emerald-500 rounded-lg transition-colors disabled:opacity-50">
-                    {postMutation.isPending ? 'جاري الترحيل...' : '✓ ترحيل المرتجع'}
-                  </button>
-                  <button onClick={() => setSelectedReturn(null)} className="px-4 py-2.5 text-sm font-semibold text-foreground bg-muted hover:bg-accent border border-border rounded-lg transition-colors">إغلاق</button>
-                </div>
-              )}
-              {selectedReturn.status !== 'Draft' && (
-                <button onClick={() => setSelectedReturn(null)} className="w-full px-4 py-2.5 text-sm font-semibold text-foreground bg-muted hover:bg-accent border border-border rounded-lg transition-colors">إغلاق</button>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-
-      <ReturnBuilder isOpen={showBuilder} onClose={() => setShowBuilder(false)} />
+      <ConfirmDialog
+        open={postTarget !== null}
+        title={`تأكيد ترحيل ${postTarget?.returnNumber ?? ''}`}
+        message="سيتم ترحيل المرتجع وإعادة الكميات للمستودع وإنشاء القيود المحاسبية العكسية."
+        confirmLabel="تأكيد الترحيل"
+        variant="default"
+        isPending={postMutation.isPending}
+        onConfirm={() => { if (postTarget) postMutation.mutate(postTarget.id); }}
+        onCancel={() => setPostTarget(null)}
+      />
     </div>
   );
 };

@@ -6,7 +6,7 @@ const Section: React.FC<{ section: IncomeStatementSection; isSubtotal?: boolean 
   return (
     <div className="space-y-2">
       <div className="flex items-center justify-between">
-        <h3 className="text-sm font-bold text-muted-foreground uppercase tracking-wide">{section.title}</h3>
+        <h3 className="text-sm font-bold text-muted-foreground tracking-wide">{section.title}</h3>
         <span className="text-sm font-bold text-foreground">{formatCurrency(section.total)}</span>
       </div>
       {section.lines.map((line, i) => (

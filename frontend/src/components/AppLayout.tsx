@@ -50,7 +50,7 @@ const navigation: NavGroup[] = [
   {
     title: 'المحاسبة والمالية',
     items: [
-      { type: 'item', to: '/accounting/accounts', label: 'شجرة الحسابات', icon: GitFork, end: true, permission: 'Accounting.Account.View' },
+      { type: 'item', to: '/accounting/accounts', label: 'دليل الحسابات', icon: GitFork, end: true, permission: 'Accounting.Account.View' },
       { type: 'item', to: '/accounting/journal-entries', label: 'القيود اليومية', icon: BookOpen, end: true, permission: 'Accounting.JournalEntry.View' },
       { type: 'item', to: '/cash/treasuries', label: 'الخزائن والبنوك', icon: Wallet, end: true, permission: 'Cash.CashAccount.View' },
       { type: 'item', to: '/assets', label: 'الأصول الثابتة', icon: Building2, end: true, permission: 'FixedAsset.FixedAsset.View' },
@@ -79,6 +79,7 @@ const navigation: NavGroup[] = [
       { type: 'item', to: '/reports/trial-balance', label: 'ميزان المراجعة', icon: FileSpreadsheet, end: true, permission: 'Accounting.TrialBalance.View' },
       { type: 'item', to: '/reports/income-statement', label: 'قائمة الدخل', icon: FileSpreadsheet, end: true, permission: 'Reports.Reports.ViewAccountingReports' },
       { type: 'item', to: '/reports/balance-sheet', label: 'الميزانية العمومية', icon: FileSpreadsheet, end: true, permission: 'Reports.Reports.ViewAccountingReports' },
+      { type: 'item', to: '/reports/general-ledger', label: 'دفتر الأستاذ', icon: BookOpen, end: true, permission: 'Accounting.GeneralLedger.View' },
       { type: 'item', to: '/reports/account-statement', label: 'كشف حساب', icon: FileSpreadsheet, end: true, permission: 'Accounting.GeneralLedger.ViewAccountStatement' },
     ],
   },
@@ -282,15 +283,15 @@ const Sidebar: React.FC<SidebarProps> = ({ open, onToggle }) => {
       {/* ═══ Collapse Toggle ═══ */}
       <button
         onClick={onToggle}
-        className="absolute -left-3 top-20 z-50 w-6 h-6 rounded-full flex items-center justify-center border transition-colors hover:bg-slate-800"
+        className="absolute -left-3 top-20 z-50 w-6 h-6 rounded-full flex items-center justify-center border transition-colors hover:bg-slate-800 opacity-40 hover:opacity-100"
         style={{
           backgroundColor: 'hsl(222.2, 84%, 4.9%)',
           borderColor: 'hsl(217.2, 32.6%, 17.5%)',
           color: 'hsl(210, 40%, 98%)',
         }}
-        title={open ? 'طيّ القائمة' : 'توسيع القائمة'}
+        title={open ? 'إخفاء الشريط الجانبي' : 'إظهار الشريط الجانبي'}
       >
-        {open ? <ChevronLeft size={14} /> : <ChevronRight size={14} />}
+        {open ? <ChevronRight size={14} /> : <ChevronLeft size={14} />}
       </button>
     </aside>
   );
@@ -301,7 +302,25 @@ const Sidebar: React.FC<SidebarProps> = ({ open, onToggle }) => {
 // ═══════════════════════════════════════
 
 export const AppLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [sidebarOpen, setSidebarOpen] = useState(() => {
+    // Persist sidebar visibility across sessions ("زر اخفاء البار" — problem.md).
+    try {
+      return localStorage.getItem('sidebar.hidden') !== '1';
+    } catch {
+      return true;
+    }
+  });
+  const toggleSidebar = React.useCallback(() => {
+    setSidebarOpen((prev) => {
+      const next = !prev;
+      try {
+        localStorage.setItem('sidebar.hidden', next ? '0' : '1');
+      } catch {
+        /* storage unavailable — state still toggles for the session */
+      }
+      return next;
+    });
+  }, []);
   const [profileOpen, setProfileOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const { user, refreshToken, logout } = useAuthStore();
@@ -342,7 +361,7 @@ export const AppLayout: React.FC<{ children: React.ReactNode }> = ({ children })
   return (
     <div className="min-h-screen bg-background text-foreground flex font-sans selection:bg-primary selection:text-primary-foreground">
       {/* ═══ SIDEBAR ═══ */}
-      <Sidebar open={sidebarOpen} onToggle={() => setSidebarOpen(!sidebarOpen)} />
+      <Sidebar open={sidebarOpen} onToggle={toggleSidebar} />
 
       {/* ═══ MAIN CONTENT ═══ */}
       <div
@@ -363,10 +382,10 @@ export const AppLayout: React.FC<{ children: React.ReactNode }> = ({ children })
           {/* Right Side (RTL Start) */}
           <div className="flex items-center gap-3">
             <button
-              onClick={() => setSidebarOpen(!sidebarOpen)}
+              onClick={toggleSidebar}
               className="p-2 rounded-lg transition-colors duration-200 hover:bg-accent"
               style={{ color: 'hsl(var(--muted-foreground))' }}
-              title={sidebarOpen ? 'إغلاق القائمة' : 'فتح القائمة'}
+              title={sidebarOpen ? 'إخفاء الشريط الجانبي' : 'إظهار الشريط الجانبي'}
             >
               <Menu size={20} />
             </button>

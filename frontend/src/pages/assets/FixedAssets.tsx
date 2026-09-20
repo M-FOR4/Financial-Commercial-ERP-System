@@ -305,7 +305,7 @@ export const FixedAssets: React.FC = () => {
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
-              <tr className="bg-muted/40 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+              <tr className="bg-muted/40 text-[10px] font-semibold tracking-wider text-muted-foreground">
                 <th className="px-5 py-3 text-right">الكود</th>
                 <th className="px-5 py-3 text-right">الاسم</th>
                 <th className="px-5 py-3 text-right">الفئة</th>

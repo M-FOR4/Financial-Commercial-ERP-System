@@ -57,12 +57,14 @@ public record UpdateWarehouseRequest(
 public record ProductDto(
     Guid Id,
     string SKU,
+    string? Barcode,
     string Name,
     string? Description,
     Guid CategoryId,
     string CategoryName,
     string UnitOfMeasure,
     decimal PurchasePrice,
+    decimal AvgCost,
     decimal SellingPrice,
     decimal CurrentStock,
     decimal MinStockLevel,
@@ -72,11 +74,13 @@ public record ProductDto(
 );
 
 public record CreateProductRequest(
-    [Required, MaxLength(100)] string SKU,
+    // Optional: auto-generated server-side (PRD-0001, PRD-0002, …) when omitted.
+    [MaxLength(100)] string? SKU,
     [Required, MaxLength(300)] string Name,
     [MaxLength(1000)] string? Description,
     [Required] Guid CategoryId,
     [Required, MaxLength(50)] string UnitOfMeasure,
+    [MaxLength(100)] string? Barcode = null,
     [Range(0, 999999999999)] decimal PurchasePrice = 0m,
     [Range(0, 999999999999)] decimal SellingPrice = 0m,
     [Range(0, 999999999999)] decimal MinStockLevel = 0m,
@@ -88,6 +92,7 @@ public record UpdateProductRequest(
     [MaxLength(1000)] string? Description,
     [Required] Guid CategoryId,
     [Required, MaxLength(50)] string UnitOfMeasure,
+    [MaxLength(100)] string? Barcode = null,
     [Range(0, 999999999999)] decimal PurchasePrice = 0m,
     [Range(0, 999999999999)] decimal SellingPrice = 0m,
     [Range(0, 999999999999)] decimal MinStockLevel = 0m,
@@ -103,6 +108,9 @@ public record StockMovementDto(
     string ProductName,
     Guid WarehouseId,
     string WarehouseName,
+    Guid? DestinationWarehouseId,
+    string? DestinationWarehouseName,
+    Guid? SourceMovementId,
     MovementType MovementType,
     string MovementTypeName,
     decimal Quantity,

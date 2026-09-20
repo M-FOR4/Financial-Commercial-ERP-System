@@ -11,6 +11,13 @@ public class StockMovement
     public Product Product { get; set; } = null!;
     public Guid WarehouseId { get; set; }
     public Warehouse Warehouse { get; set; } = null!;
+
+    public Guid? DestinationWarehouseId { get; set; }
+    public Warehouse? DestinationWarehouse { get; set; }
+
+    public Guid? SourceMovementId { get; set; }
+    public StockMovement? SourceMovement { get; set; }
+
     public MovementType MovementType { get; set; }
     public decimal Quantity { get; set; }
     public decimal UnitCost { get; set; }

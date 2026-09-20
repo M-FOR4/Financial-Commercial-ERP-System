@@ -344,6 +344,109 @@ public class ReportService : IReportService
     }
 
     // ═══════════════════════════════════
+    //  GENERAL LEDGER (دفتر الأستاذ)
+    // ═══════════════════════════════════
+
+    /// <summary>
+    /// Posted-transaction ledger for a single GL account.
+    ///
+    /// Balance columns follow the account's NORMAL balance nature — the same rule
+    /// AccountingService.PostJournalEntryAsync / CancelJournalEntryAsync use when
+    /// maintaining Account.Balance:
+    ///   Asset &amp; Expense   → Debit is positive  (balance = Dr − Cr)
+    ///   Liability, Equity, Revenue → Credit is positive (balance = Cr − Dr)
+    /// The opening balance is the exact sum of all posted lines dated before
+    /// <c>from</c> (the account's base balance at the period start), so
+    /// OpeningBalance + wrapped period movement always equals ClosingBalance.
+    /// </summary>
+    public async Task<GeneralLedgerResponse> GetGeneralLedgerAsync(GeneralLedgerRequest request)
+    {
+        // Npgsql requires UTC Kind for timestamptz comparisons; query-string dates arrive as Unspecified.
+        var fromDate = request.FromDate.ToUtc();
+        var toDate = request.ToDate.ToUtc();
+
+        if (toDate < fromDate)
+        {
+            throw new InvalidOperationException("The 'to' date must be on or after the 'from' date.");
+        }
+
+        var account = await _db.Accounts
+            .AsNoTracking()
+            .FirstOrDefaultAsync(a => a.Id == request.AccountId)
+            ?? throw new InvalidOperationException("Account not found.");
+
+        // Normal-balance nature of the account (see method summary).
+        var debitNature = account.Type is AccountType.Asset or AccountType.Expense;
+        decimal ToNatural(decimal debit, decimal credit) => debitNature ? debit - credit : credit - debit;
+
+        var postedLines = await _db.JournalEntryLines
+            .Include(l => l.JournalEntry).ThenInclude(je => je.PostedByUser)
+            .Where(l => l.AccountId == account.Id && l.JournalEntry.Status == JournalEntryStatus.Posted)
+            .AsNoTracking()
+            .ToListAsync();
+
+        var openingBalance = postedLines
+            .Where(l => l.JournalEntry.EntryDate < fromDate)
+            .Sum(l => ToNatural(l.Debit, l.Credit));
+
+        var periodLines = postedLines
+            .Where(l => l.JournalEntry.EntryDate >= fromDate && l.JournalEntry.EntryDate <= toDate)
+            .OrderBy(l => l.JournalEntry.EntryDate)
+            .ThenBy(l => l.JournalEntry.EntryNumber)
+            .ToList();
+
+        // Counterpart accounts: the other lines of the same journal entry.
+        var entryIds = periodLines.Select(l => l.JournalEntryId).Distinct().ToList();
+        var counterparts = await _db.JournalEntryLines
+            .Where(l => entryIds.Contains(l.JournalEntryId) && l.AccountId != account.Id)
+            .Select(l => new { l.JournalEntryId, l.Account.Code, l.Account.Name })
+            .AsNoTracking()
+            .ToListAsync();
+
+        var counterpartLookup = counterparts
+            .GroupBy(c => c.JournalEntryId)
+            .ToDictionary(
+                g => g.Key,
+                g => string.Join(" • ", g.Select(c => $"{c.Code} — {c.Name}").Distinct()));
+
+        var lines = new List<GeneralLedgerLineDto>();
+        var running = openingBalance;
+        decimal totalDebit = 0, totalCredit = 0;
+
+        foreach (var line in periodLines)
+        {
+            running += ToNatural(line.Debit, line.Credit);
+            totalDebit += line.Debit;
+            totalCredit += line.Credit;
+
+            lines.Add(new GeneralLedgerLineDto(
+                line.JournalEntry.EntryDate,
+                line.JournalEntry.EntryNumber,
+                line.JournalEntry.SourceDocumentType,
+                string.IsNullOrWhiteSpace(line.Description) ? line.JournalEntry.Description : line.Description!,
+                counterpartLookup.TryGetValue(line.JournalEntryId, out var cp) ? cp : "—",
+                line.Debit,
+                line.Credit,
+                running,
+                line.JournalEntry.PostedByUser?.FullName));
+        }
+
+        return new GeneralLedgerResponse(
+            account.Id,
+            account.Code,
+            account.Name,
+            account.Type.ToString(),
+            debitNature ? "Debit" : "Credit",
+            fromDate,
+            toDate,
+            openingBalance,
+            totalDebit,
+            totalCredit,
+            running,
+            lines);
+    }
+
+    // ═══════════════════════════════════
     //  STOCK LEDGER
     // ═══════════════════════════════════
 

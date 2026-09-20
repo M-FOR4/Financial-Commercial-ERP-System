@@ -22,6 +22,7 @@ public class FixedAssetsController : ControllerBase
     //  ASSET CATEGORIES
     // ═══════════════════════════════════
 
+    [HasPermission("FixedAsset.FixedAsset.View")]
     [HttpGet("categories")]
     public async Task<IActionResult> GetAllCategories()
     {
@@ -29,6 +30,7 @@ public class FixedAssetsController : ControllerBase
         return Ok(categories);
     }
 
+    [HasPermission("FixedAsset.FixedAsset.View")]
     [HttpGet("categories/{id:guid}")]
     public async Task<IActionResult> GetCategoryById(Guid id)
     {
@@ -37,6 +39,7 @@ public class FixedAssetsController : ControllerBase
         return Ok(category);
     }
 
+    [HasPermission("FixedAsset.FixedAsset.Add")]
     [HttpPost("categories")]
     public async Task<IActionResult> CreateCategory([FromBody] AssetCategoryRequest request)
     {
@@ -51,6 +54,7 @@ public class FixedAssetsController : ControllerBase
         }
     }
 
+    [HasPermission("FixedAsset.FixedAsset.Edit")]
     [HttpPut("categories/{id:guid}")]
     public async Task<IActionResult> UpdateCategory(Guid id, [FromBody] AssetCategoryRequest request)
     {
@@ -66,6 +70,7 @@ public class FixedAssetsController : ControllerBase
         }
     }
 
+    [HasPermission("FixedAsset.FixedAsset.Delete")]
     [HttpDelete("categories/{id:guid}")]
     public async Task<IActionResult> DeleteCategory(Guid id)
     {
@@ -78,6 +83,7 @@ public class FixedAssetsController : ControllerBase
     //  FIXED ASSETS
     // ═══════════════════════════════════
 
+    [HasPermission("FixedAsset.FixedAsset.View")]
     [HttpGet]
     public async Task<IActionResult> GetAllAssets()
     {
@@ -85,6 +91,7 @@ public class FixedAssetsController : ControllerBase
         return Ok(assets);
     }
 
+    [HasPermission("FixedAsset.FixedAsset.View")]
     [HttpGet("{id:guid}")]
     public async Task<IActionResult> GetAssetById(Guid id)
     {
@@ -93,6 +100,7 @@ public class FixedAssetsController : ControllerBase
         return Ok(asset);
     }
 
+    [HasPermission("FixedAsset.FixedAsset.Add")]
     [HttpPost]
     public async Task<IActionResult> CreateAsset([FromBody] FixedAssetRequest request)
     {
@@ -107,6 +115,7 @@ public class FixedAssetsController : ControllerBase
         }
     }
 
+    [HasPermission("FixedAsset.FixedAsset.Edit")]
     [HttpPut("{id:guid}")]
     public async Task<IActionResult> UpdateAsset(Guid id, [FromBody] FixedAssetRequest request)
     {
@@ -126,6 +135,7 @@ public class FixedAssetsController : ControllerBase
     //  DEPRECIATION
     // ═══════════════════════════════════
 
+    [HasPermission("FixedAsset.FixedAsset.CalculateDepreciation")]
     [HttpPost("depreciate")]
     public async Task<IActionResult> RunDepreciation([FromBody] DepreciationRunRequest request)
     {
@@ -140,6 +150,7 @@ public class FixedAssetsController : ControllerBase
         }
     }
 
+    [HasPermission("FixedAsset.FixedAsset.View")]
     [HttpGet("depreciation-entries")]
     public async Task<IActionResult> GetDepreciationEntries([FromQuery] Guid? assetId)
     {
@@ -151,6 +162,7 @@ public class FixedAssetsController : ControllerBase
     //  DISPOSAL
     // ═══════════════════════════════════
 
+    [HasPermission("FixedAsset.FixedAsset.Dispose")]
     [HttpPost("{id:guid}/dispose")]
     public async Task<IActionResult> DisposeAsset(Guid id, [FromBody] AssetDisposalRequest request)
     {

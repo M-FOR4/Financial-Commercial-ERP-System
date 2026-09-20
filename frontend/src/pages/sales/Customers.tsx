@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery as useSuggestQuery } from '@tanstack/react-query';
 import { salesApi, type CustomerDto, type CreateCustomerRequest } from '../../services/salesApi';
 import { X } from 'lucide-react';
 import { formatCurrency } from '../../utils/format';
@@ -17,6 +18,14 @@ const CustomerModal: React.FC<CustomerModalProps> = ({ isOpen, onClose, customer
   const [address, setAddress] = useState(customer?.address || '');
   const [isActive, setIsActive] = useState(customer?.isActive ?? true);
   const [error, setError] = useState<string | null>(null);
+
+  // Auto-generated code suggestion for new records (readonly display field).
+  const { data: suggestedCode } = useSuggestQuery({
+    queryKey: ['nextCustomerCode', isOpen],
+    queryFn: salesApi.nextCustomerCode,
+    enabled: isOpen && !isEditing,
+    staleTime: 0,
+  });
 
   React.useEffect(() => {
     if (isOpen) {
@@ -47,7 +56,9 @@ const CustomerModal: React.FC<CustomerModalProps> = ({ isOpen, onClose, customer
     e.preventDefault();
     setError(null);
     const data: CreateCustomerRequest = {
-      code: code.trim(),
+      // Creation: omit the code — the backend auto-generates the next
+      // sequential code (CUST-0001 …) and links the AR sub-account.
+      code: isEditing ? code.trim() : null,
       name: name.trim(),
       phone: phone.trim() || null,
       email: email.trim() || null,
@@ -73,21 +84,30 @@ const CustomerModal: React.FC<CustomerModalProps> = ({ isOpen, onClose, customer
           {error && <div className="p-3 bg-destructive/10 border border-destructive/30 rounded-lg text-destructive text-sm">{error}</div>}
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs font-bold uppercase tracking-wider text-muted-foreground mb-1.5">الكود *</label>
-              <input type="text" required value={code} onChange={(e) => setCode(e.target.value)} disabled={isEditing} placeholder="CUST-001" className="w-full px-4 py-2.5 bg-input border border-border rounded-lg text-foreground placeholder-muted-foreground text-sm disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-ring" />
+              <label className="block text-xs font-bold tracking-wider text-muted-foreground mb-1.5">الكود</label>
+              <input
+                type="text"
+                value={isEditing ? code : (suggestedCode || '...')}
+                onChange={(e) => setCode(e.target.value)}
+                readOnly={!isEditing}
+                placeholder="CUST-0001"
+                title={isEditing ? 'الكود غير قابل للتعديل' : 'يتم توليد الكود تلقائياً'}
+                className="w-full px-4 py-2.5 bg-muted/50 border border-border rounded-lg text-foreground placeholder-muted-foreground text-sm cursor-not-allowed focus:outline-none"
+              />
+              {!isEditing && <p className="text-[10px] text-muted-foreground mt-1">يتم توليد الكود تلقائياً</p>}
             </div>
             <div>
-              <label className="block text-xs font-bold uppercase tracking-wider text-muted-foreground mb-1.5">الاسم *</label>
+              <label className="block text-xs font-bold tracking-wider text-muted-foreground mb-1.5">الاسم *</label>
               <input type="text" required value={name} onChange={(e) => setName(e.target.value)} placeholder="اسم العميل" className="w-full px-4 py-2.5 bg-input border border-border rounded-lg text-foreground placeholder-muted-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
             </div>
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs font-bold uppercase tracking-wider text-muted-foreground mb-1.5">الهاتف</label>
+              <label className="block text-xs font-bold tracking-wider text-muted-foreground mb-1.5">الهاتف</label>
               <input type="text" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="+218..." className="w-full px-4 py-2.5 bg-input border border-border rounded-lg text-foreground placeholder-muted-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
             </div>
             <div>
-              <label className="block text-xs font-bold uppercase tracking-wider text-muted-foreground mb-1.5">البريد الإلكتروني</label>
+              <label className="block text-xs font-bold tracking-wider text-muted-foreground mb-1.5">البريد الإلكتروني</label>
               <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="customer@example.com" className="w-full px-4 py-2.5 bg-input border border-border rounded-lg text-foreground placeholder-muted-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
             </div>
           </div>
@@ -148,7 +168,7 @@ export const Customers: React.FC = () => {
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="bg-muted/40 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                <tr className="bg-muted/40 text-[10px] font-bold tracking-wider text-muted-foreground">
                   <th className="px-5 py-3 text-right">الكود</th>
                   <th className="px-5 py-3 text-right">الاسم</th>
                   <th className="px-5 py-3 text-right">الهاتف</th>

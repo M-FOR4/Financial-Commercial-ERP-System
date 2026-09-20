@@ -21,6 +21,7 @@ public class AccountsController : ControllerBase
         _logger = logger;
     }
 
+    [HasPermission("Accounting.Account.View")]
     [HttpGet]
     public async Task<IActionResult> GetAccountsTree()
     {
@@ -28,6 +29,7 @@ public class AccountsController : ControllerBase
         return Ok(tree);
     }
 
+    [HasPermission("Accounting.Account.View")]
     [HttpGet("flat")]
     public async Task<IActionResult> GetAccountsFlat([FromQuery] AccountType? type, [FromQuery] bool? activeOnly)
     {
@@ -35,6 +37,7 @@ public class AccountsController : ControllerBase
         return Ok(accounts);
     }
 
+    [HasPermission("Accounting.Account.View")]
     [HttpGet("{id:guid}")]
     public async Task<IActionResult> GetAccountById(Guid id)
     {
@@ -43,6 +46,27 @@ public class AccountsController : ControllerBase
         return Ok(account);
     }
 
+    /// <summary>
+    /// Suggests the next free account code for the (optional) parent account.
+    /// Codes follow the chart-of-accounts convention: children of a 4-digit
+    /// parent are allocated in steps of 10 inside the parent's numeric block.
+    /// </summary>
+    [HasPermission("Accounting.Account.View")]
+    [HttpGet("suggest-code")]
+    public async Task<IActionResult> SuggestAccountCode([FromQuery] Guid? parentId, [FromQuery] AccountType? type)
+    {
+        try
+        {
+            var suggestion = await _accountingService.SuggestAccountCodeAsync(parentId, type);
+            return Ok(suggestion);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { success = false, message = ex.Message });
+        }
+    }
+
+    [HasPermission("Accounting.Account.View")]
     [HttpGet("{id:guid}/balance")]
     public async Task<IActionResult> GetAccountBalance(Guid id)
     {
@@ -51,6 +75,7 @@ public class AccountsController : ControllerBase
         return Ok(balance);
     }
 
+    [HasPermission("Accounting.Account.Add")]
     [HttpPost]
     public async Task<IActionResult> CreateAccount([FromBody] CreateAccountRequest request)
     {
@@ -65,6 +90,7 @@ public class AccountsController : ControllerBase
         }
     }
 
+    [HasPermission("Accounting.Account.Edit")]
     [HttpPut("{id:guid}")]
     public async Task<IActionResult> UpdateAccount(Guid id, [FromBody] UpdateAccountRequest request)
     {
@@ -80,6 +106,8 @@ public class AccountsController : ControllerBase
         }
     }
 
+    // Seed is an admin-only operation — requires account add permission plus settings edit
+    [HasPermission("Admin.Settings.Edit")]
     [HttpPost("seed")]
     public async Task<IActionResult> SeedDefaultAccounts()
     {

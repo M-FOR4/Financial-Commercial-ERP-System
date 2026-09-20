@@ -38,6 +38,18 @@ public class AccountingDefaults
     public Guid? DefaultSupplierApAccountId { get; set; }
     public Account? DefaultSupplierApAccount { get; set; }
 
+    // VAT
+    public Guid? VatPayableAccountId { get; set; }
+    public Account? VatPayableAccount { get; set; }
+    public Guid? VatReceivableAccountId { get; set; }
+    public Account? VatReceivableAccount { get; set; }
+
+    // Discounts
+    public Guid? SalesDiscountAccountId { get; set; }
+    public Account? SalesDiscountAccount { get; set; }
+    public Guid? PurchaseDiscountAccountId { get; set; }
+    public Account? PurchaseDiscountAccount { get; set; }
+
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime? UpdatedAt { get; set; }
 }

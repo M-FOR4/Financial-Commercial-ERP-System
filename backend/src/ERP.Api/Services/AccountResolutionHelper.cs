@@ -11,6 +11,27 @@ namespace ERP.Api.Services;
 /// </summary>
 public static class AccountResolutionHelper
 {
+    /// <summary>Seeded AR control account code (العملاء / المدينون).</summary>
+    public const string DefaultArAccountCode = "1130";
+
+    /// <summary>Seeded AP control account code (الموردون / الدائنون).</summary>
+    public const string DefaultApAccountCode = "2110";
+
+    /// <summary>
+    /// Resolves an account row by its chart-of-accounts code, preferring the
+    /// company-scoped match. Returns Guid.Empty when no such account exists
+    /// (callers decide whether that is fatal).
+    /// </summary>
+    public static async Task<Guid> ResolveAccountByCodeAsync(
+        AppDbContext context, Guid companyId, string code)
+    {
+        var account = await context.Accounts
+            .FirstOrDefaultAsync(a => a.Code == code && a.CompanyId == companyId)
+            ?? await context.Accounts.FirstOrDefaultAsync(a => a.Code == code);
+
+        return account?.Id ?? Guid.Empty;
+    }
+
     /// <summary>
     /// Load the AccountingDefaults for a given company. Returns null if not configured.
     /// </summary>
@@ -66,6 +87,70 @@ public static class AccountResolutionHelper
             defaults?.InventoryAccountId, "1140", "Inventory");
 
         return (ar, salesRevenue, cogs, inventory);
+    }
+
+    /// <summary>
+    /// Convenience: resolve accounts needed for a sales invoice with VAT.
+    /// Returns AR, Sales Revenue, Sales Discount, VAT Payable, COGS, Inventory.
+    /// </summary>
+    public static async Task<(Account AR, Account SalesRevenue, Account SalesDiscount, Account VatPayable, Account Cogs, Account Inventory)>
+        ResolveSalesAccountsWithTaxAsync(AppDbContext context, Guid companyId)
+    {
+        var defaults = await GetDefaultsAsync(context, companyId);
+
+        var ar = await ResolveAsync(context, companyId,
+            defaults?.DefaultCustomerArAccountId, "1130", "Accounts Receivable");
+        var salesRevenue = await ResolveAsync(context, companyId,
+            defaults?.SalesRevenueAccountId, "4100", "Sales Revenue");
+        var salesDiscount = await ResolveAsync(context, companyId,
+            defaults?.SalesDiscountAccountId, "4110", "Sales Discount");
+        var vatPayable = await ResolveAsync(context, companyId,
+            defaults?.VatPayableAccountId, "2200", "VAT Payable");
+        var cogs = await ResolveAsync(context, companyId,
+            defaults?.CogsAccountId, "5100", "Cost of Goods Sold");
+        var inventory = await ResolveAsync(context, companyId,
+            defaults?.InventoryAccountId, "1140", "Inventory");
+
+        return (ar, salesRevenue, salesDiscount, vatPayable, cogs, inventory);
+    }
+
+    /// <summary>
+    /// Convenience: resolve accounts needed for a purchase invoice with VAT.
+    /// Returns Inventory, AP, VAT Receivable, Purchase Discount.
+    /// </summary>
+    public static async Task<(Account Inventory, Account AP, Account VatReceivable, Account PurchaseDiscount)>
+        ResolvePurchaseAccountsWithTaxAsync(AppDbContext context, Guid companyId)
+    {
+        var defaults = await GetDefaultsAsync(context, companyId);
+
+        var inventory = await ResolveAsync(context, companyId,
+            defaults?.InventoryAccountId, "1140", "Inventory");
+        var ap = await ResolveAsync(context, companyId,
+            defaults?.DefaultSupplierApAccountId, "2110", "Accounts Payable");
+        var vatReceivable = await ResolveAsync(context, companyId,
+            defaults?.VatReceivableAccountId, "1150", "VAT Receivable");
+        var purchaseDiscount = await ResolveAsync(context, companyId,
+            defaults?.PurchaseDiscountAccountId, "2125", "Purchase Discount");
+
+        return (inventory, ap, vatReceivable, purchaseDiscount);
+    }
+
+    /// <summary>
+    /// Convenience: resolve accounts for manual stock adjustments (gain/loss).
+    /// </summary>
+    public static async Task<(Account Inventory, Account Gain, Account Loss)>
+        ResolveInventoryAdjustmentAccountsAsync(AppDbContext context, Guid companyId)
+    {
+        var defaults = await GetDefaultsAsync(context, companyId);
+
+        var inventory = await ResolveAsync(context, companyId,
+            defaults?.InventoryAccountId, "1140", "Inventory");
+        var gain = await ResolveAsync(context, companyId,
+            defaults?.InventoryGainAccountId, "4200", "Inventory Gain");
+        var loss = await ResolveAsync(context, companyId,
+            defaults?.InventoryLossAccountId, "5500", "Inventory Loss");
+
+        return (inventory, gain, loss);
     }
 
     /// <summary>

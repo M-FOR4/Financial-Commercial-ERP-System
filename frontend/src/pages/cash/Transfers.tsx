@@ -83,7 +83,7 @@ export const Transfers: React.FC = () => {
 
       {showForm && (
         <div className="bg-card border border-border rounded-xl p-6">
-          <h2 className="text-sm font-bold text-foreground mb-4 uppercase tracking-wide">تحويل داخلي جديد</h2>
+          <h2 className="text-sm font-bold text-foreground mb-4 tracking-wide">تحويل داخلي جديد</h2>
           {error && <div className="mb-4 px-3 py-2 bg-red-950 border border-red-800/50 rounded-lg text-sm text-red-400">{error}</div>}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
@@ -141,14 +141,14 @@ export const Transfers: React.FC = () => {
           <table className="w-full">
             <thead>
               <tr className="border-b border-border">
-                <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase">الرقم</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase">التاريخ</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase">من</th>
-                <th className="px-4 py-3 text-center text-xs font-semibold text-muted-foreground uppercase">→</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase">إلى</th>
-                <th className="px-4 py-3 text-right text-xs font-semibold text-muted-foreground uppercase">المبلغ</th>
-                <th className="px-4 py-3 text-center text-xs font-semibold text-muted-foreground uppercase">الحالة</th>
-                <th className="px-4 py-3 text-center text-xs font-semibold text-muted-foreground uppercase">الإجراءات</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground">الرقم</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground">التاريخ</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground">من</th>
+                <th className="px-4 py-3 text-center text-xs font-semibold text-muted-foreground">→</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground">إلى</th>
+                <th className="px-4 py-3 text-right text-xs font-semibold text-muted-foreground">المبلغ</th>
+                <th className="px-4 py-3 text-center text-xs font-semibold text-muted-foreground">الحالة</th>
+                <th className="px-4 py-3 text-center text-xs font-semibold text-muted-foreground">الإجراءات</th>
               </tr>
             </thead>
             <tbody>

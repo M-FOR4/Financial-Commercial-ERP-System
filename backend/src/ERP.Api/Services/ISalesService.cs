@@ -8,7 +8,7 @@ public interface ISalesService
     // Sales Invoices
     Task<List<SalesInvoiceDto>> GetSalesInvoicesAsync(JournalEntryStatus? status = null, string? search = null);
     Task<SalesInvoiceDto?> GetSalesInvoiceByIdAsync(Guid id);
-    Task<SalesInvoiceDto> CreateSalesInvoiceDraftAsync(CreateSalesInvoiceRequest request, Guid companyId);
+    Task<SalesInvoiceDto> CreateSalesInvoiceDraftAsync(CreateSalesInvoiceRequest request, Guid companyId = default);
     Task<SalesInvoiceDto> PostSalesInvoiceAsync(Guid id, Guid? postedByUserId);
     Task<SalesInvoiceDto> CancelSalesInvoiceAsync(Guid id);
 

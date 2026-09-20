@@ -56,7 +56,7 @@ public class SalesService : ISalesService
         return si == null ? null : MapToInvoiceDto(si);
     }
 
-    public async Task<SalesInvoiceDto> CreateSalesInvoiceDraftAsync(CreateSalesInvoiceRequest request, Guid companyId)
+    public async Task<SalesInvoiceDto> CreateSalesInvoiceDraftAsync(CreateSalesInvoiceRequest request, Guid companyId = default)
     {
         var customer = await _context.Customers.FindAsync(request.CustomerId);
         if (customer == null)
@@ -65,6 +65,9 @@ public class SalesService : ISalesService
         var warehouse = await _context.Warehouses.FindAsync(request.WarehouseId);
         if (warehouse == null)
             throw new InvalidOperationException("Warehouse does not exist.");
+
+        if (companyId == Guid.Empty)
+            companyId = warehouse.CompanyId;
 
         if (request.Lines == null || request.Lines.Count == 0)
             throw new InvalidOperationException("At least one invoice line is required.");
@@ -177,8 +180,10 @@ public class SalesService : ISalesService
 
             // 1. Create Journal Entry: Debit AR, Credit Sales Revenue, Debit COGS, Credit Inventory
             // Resolve accounts from AccountingDefaults per company (ACCOUNTING_RULES §30)
-            var (arAccount, salesRevenueAccount, cogsAccount, inventoryAccount) =
-                await AccountResolutionHelper.ResolveSalesAccountsAsync(_context, invoice.CompanyId);
+            // 1. Create Journal Entry: Debit AR, Credit Sales Revenue, Debit COGS, Credit Inventory
+            // Resolve accounts from AccountingDefaults per company (ACCOUNTING_RULES §30)
+            var (arAccount, salesRevenueAccount, salesDiscountAccount, vatPayableAccount, cogsAccount, inventoryAccount) =
+                await AccountResolutionHelper.ResolveSalesAccountsWithTaxAsync(_context, invoice.CompanyId);
 
             var jeCount = await _context.JournalEntries.CountAsync();
             var fiscalYear = await _context.FiscalYears
@@ -201,30 +206,48 @@ public class SalesService : ISalesService
                 CreatedAt = DateTime.UtcNow
             };
 
-            // Debit Accounts Receivable
+            // Debit Accounts Receivable (total invoice amount due from customer)
             journalEntry.Lines.Add(new JournalEntryLine
             {
                 AccountId = arAccount.Id,
-                Debit = invoice.TotalAmount,
+                Debit = JournalBuilder.Round(invoice.TotalAmount),
                 Credit = 0m,
                 Description = $"AR — {invoice.Customer.Name}"
             });
 
-            // Credit Sales Revenue
+            // Net taxable sales base = SubTotal - Discounts (explicit discount lines below)
+            var taxableSalesBase = JournalBuilder.Round(invoice.SubTotal - invoice.DiscountAmount);
+            var taxAmount = invoice.TaxAmount;
+
+            // Credit Sales Revenue (net of discounts to keep revenue aligned with taxable base)
             journalEntry.Lines.Add(new JournalEntryLine
             {
                 AccountId = salesRevenueAccount.Id,
                 Debit = 0m,
-                Credit = invoice.SubTotal,
+                Credit = taxableSalesBase,
                 Description = $"Sales Revenue — {invoice.InvoiceNumber}"
             });
+
+            // Explicit discount line when invoice-level discount is used
+            if (invoice.DiscountAmount > 0m)
+            {
+                ((List<JournalEntryLine>)journalEntry.Lines).AddDiscountLine(salesDiscountAccount.Id, invoice.DiscountAmount,
+                    $"Sales Discount — {invoice.InvoiceNumber}");
+            }
+
+            // Explicit VAT payable line when tax rate is configured
+            if (taxAmount > 0m)
+            {
+                ((List<JournalEntryLine>)journalEntry.Lines).AddVatLine(vatPayableAccount.Id, taxAmount, isPurchase: false,
+                    $"VAT Output — {invoice.InvoiceNumber}");
+            }
 
             // Calculate total COGS and Debit COGS / Credit Inventory for each line
             decimal totalCogs = 0m;
             foreach (var line in invoice.Lines)
             {
                 var effectiveUnitCost = effectiveUnitCostByLine[line.Id];
-                var cogsAmount = line.Quantity * effectiveUnitCost;
+                var cogsAmount = JournalBuilder.Round(line.Quantity * effectiveUnitCost);
                 totalCogs += cogsAmount;
 
                 // Debit COGS
@@ -248,18 +271,17 @@ public class SalesService : ISalesService
                 });
             }
 
+            // Enforce double-entry invariant and balance rounding residuals on the largest line.
+            journalEntry.Lines.ToList().NormalizeAndBalance();
+
             _context.JournalEntries.Add(journalEntry);
             await _context.SaveChangesAsync(); // Save JE to get its ID
 
-            // Update account balances
-            arAccount.Balance += invoice.TotalAmount;
-            arAccount.UpdatedAt = DateTime.UtcNow;
-            salesRevenueAccount.Balance += invoice.SubTotal;
-            salesRevenueAccount.UpdatedAt = DateTime.UtcNow;
-            cogsAccount.Balance += totalCogs;
-            cogsAccount.UpdatedAt = DateTime.UtcNow;
-            inventoryAccount.Balance -= totalCogs;
-            inventoryAccount.UpdatedAt = DateTime.UtcNow;
+            // Update account balances using the same posted lines that passed JournalBuilder validation.
+            foreach (var line in journalEntry.Lines)
+            {
+                line.ApplyPostingToAccountBalance(_context);
+            }
 
             // 2. Create outbound Stock Movements and update product stock
             foreach (var line in invoice.Lines)
@@ -485,6 +507,7 @@ public class SalesService : ISalesService
 
         var salesReturn = new SalesReturn
         {
+            CompanyId = originalInvoice.CompanyId,
             ReturnNumber = returnNumber,
             OriginalInvoiceId = request.OriginalInvoiceId,
             CustomerId = originalInvoice.CustomerId,
@@ -563,15 +586,24 @@ public class SalesService : ISalesService
             var (arAccount, salesRevenueAccount, cogsAccount, inventoryAccount) =
                 await AccountResolutionHelper.ResolveSalesAccountsAsync(_context, salesReturn.CompanyId);
 
-            var jeCount = await _context.JournalEntries.CountAsync();
+            var jeCount = await _context.JournalEntries.CountAsync(j => j.CompanyId == salesReturn.CompanyId);
+            var fiscalYear = await _context.FiscalYears
+                .FirstOrDefaultAsync(fy => fy.CompanyId == salesReturn.CompanyId && fy.IsActive);
+            if (fiscalYear == null)
+                throw new InvalidOperationException("No active fiscal year found for this company.");
+
             var journalEntry = new JournalEntry
             {
+                CompanyId = salesReturn.CompanyId,
+                FiscalYearId = fiscalYear.Id,
                 EntryNumber = $"JE-SR-{DateTime.UtcNow:yyyyMM}-{jeCount + 1:D4}",
                 EntryDate = salesReturn.ReturnDate,
                 Description = $"Sales Return {salesReturn.ReturnNumber} — {salesReturn.Customer.Name}",
                 Status = JournalEntryStatus.Posted,
                 PostedAt = DateTime.UtcNow,
                 PostedByUserId = postedByUserId,
+                SourceDocumentType = "SalesReturn",
+                SourceDocumentId = salesReturn.Id.ToString(),
                 CreatedAt = DateTime.UtcNow
             };
 
@@ -629,6 +661,7 @@ public class SalesService : ISalesService
             {
                 var stockMovement = new StockMovement
                 {
+                    CompanyId = salesReturn.CompanyId,
                     ProductId = line.ProductId,
                     WarehouseId = salesReturn.WarehouseId,
                     MovementType = MovementType.In,

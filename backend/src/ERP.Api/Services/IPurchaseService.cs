@@ -7,7 +7,7 @@ public interface IPurchaseService
 {
     Task<List<PurchaseInvoiceDto>> GetPurchaseInvoicesAsync(JournalEntryStatus? status = null, string? search = null);
     Task<PurchaseInvoiceDto?> GetPurchaseInvoiceByIdAsync(Guid id);
-    Task<PurchaseInvoiceDto> CreatePurchaseInvoiceDraftAsync(CreatePurchaseInvoiceRequest request, Guid companyId);
+    Task<PurchaseInvoiceDto> CreatePurchaseInvoiceDraftAsync(CreatePurchaseInvoiceRequest request, Guid companyId = default);
     Task<PurchaseInvoiceDto> PostPurchaseInvoiceAsync(Guid id, Guid? postedByUserId);
     Task<PurchaseInvoiceDto> CancelPurchaseInvoiceAsync(Guid id);
 

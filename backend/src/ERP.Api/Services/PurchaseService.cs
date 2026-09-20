@@ -48,12 +48,14 @@ public class PurchaseService : IPurchaseService
         return pi == null ? null : MapToInvoiceDto(pi);
     }
 
-    public async Task<PurchaseInvoiceDto> CreatePurchaseInvoiceDraftAsync(CreatePurchaseInvoiceRequest request, Guid companyId)
+    public async Task<PurchaseInvoiceDto> CreatePurchaseInvoiceDraftAsync(CreatePurchaseInvoiceRequest request, Guid companyId = default)
     {
         var supplier = await _context.Suppliers.FindAsync(request.SupplierId)
             ?? throw new InvalidOperationException("Supplier does not exist.");
         var warehouse = await _context.Warehouses.FindAsync(request.WarehouseId)
             ?? throw new InvalidOperationException("Warehouse does not exist.");
+        if (companyId == Guid.Empty)
+            companyId = warehouse.CompanyId;
         if (request.Lines == null || request.Lines.Count == 0)
             throw new InvalidOperationException("At least one invoice line is required.");
 
@@ -175,7 +177,7 @@ public class PurchaseService : IPurchaseService
             apAccount.Balance += invoice.TotalAmount;
             apAccount.UpdatedAt = DateTime.UtcNow;
 
-            // 2. Inbound Stock Movements (at EffectiveUnitCost)
+            // 2. Inbound Stock Movements (at EffectiveUnitCost and update Weighted Average Cost)
             foreach (var line in invoice.Lines)
             {
                 var stockMovement = new StockMovement
@@ -191,7 +193,14 @@ public class PurchaseService : IPurchaseService
                 _context.StockMovements.Add(stockMovement);
 
                 var product = line.Product;
+                var newTotalQty = product.CurrentStock + line.Quantity;
+                if (newTotalQty > 0m)
+                {
+                    product.AvgCost = JournalBuilder.Round(
+                        ((product.CurrentStock * product.AvgCost) + (line.Quantity * line.EffectiveUnitCost)) / newTotalQty);
+                }
                 product.CurrentStock += line.Quantity;
+                product.PurchasePrice = line.EffectiveUnitCost;
                 product.UpdatedAt = DateTime.UtcNow;
             }
 
@@ -238,13 +247,22 @@ public class PurchaseService : IPurchaseService
             var (inventoryAccount, apAccount) =
                 await AccountResolutionHelper.ResolvePurchaseAccountsAsync(_context, invoice.CompanyId);
 
-            var jeCount = await _context.JournalEntries.CountAsync();
+            var jeCount = await _context.JournalEntries.CountAsync(j => j.CompanyId == invoice.CompanyId);
+            var fiscalYear = await _context.FiscalYears
+                .FirstOrDefaultAsync(fy => fy.CompanyId == invoice.CompanyId && fy.IsActive);
+            if (fiscalYear == null)
+                throw new InvalidOperationException("No active fiscal year found for this company.");
+
             var reversalEntry = new JournalEntry
             {
+                CompanyId = invoice.CompanyId,
+                FiscalYearId = fiscalYear.Id,
                 EntryNumber = $"JE-PIC-{DateTime.UtcNow:yyyyMM}-{jeCount + 1:D4}",
                 EntryDate = DateTime.UtcNow,
                 Description = $"Reversal — Purchase Invoice {invoice.InvoiceNumber}",
                 Status = JournalEntryStatus.Posted, PostedAt = DateTime.UtcNow,
+                SourceDocumentType = "PurchaseInvoiceCancel",
+                SourceDocumentId = invoice.Id.ToString(),
                 CreatedAt = DateTime.UtcNow
             };
 
@@ -265,6 +283,7 @@ public class PurchaseService : IPurchaseService
             {
                 _context.StockMovements.Add(new StockMovement
                 {
+                    CompanyId = invoice.CompanyId,
                     ProductId = line.ProductId, WarehouseId = invoice.WarehouseId,
                     MovementType = MovementType.Out, Quantity = line.Quantity,
                     UnitCost = line.EffectiveUnitCost,
@@ -330,11 +349,12 @@ public class PurchaseService : IPurchaseService
         if (request.Lines == null || request.Lines.Count == 0)
             throw new InvalidOperationException("At least one return line is required.");
 
-        var returnCount = await _context.PurchaseReturns.CountAsync();
+        var returnCount = await _context.PurchaseReturns.CountAsync(pr => pr.CompanyId == originalInvoice.CompanyId);
         var returnNumber = $"PRET-{DateTime.UtcNow:yyyyMM}-{returnCount + 1:D4}";
 
         var purchaseReturn = new PurchaseReturn
         {
+            CompanyId = originalInvoice.CompanyId,
             ReturnNumber = returnNumber, OriginalInvoiceId = request.OriginalInvoiceId,
             SupplierId = originalInvoice.SupplierId, WarehouseId = originalInvoice.WarehouseId,
             ReturnDate = DateTime.UtcNow, Status = JournalEntryStatus.Draft,
@@ -385,18 +405,36 @@ public class PurchaseService : IPurchaseService
             if (purchaseReturn.Status != JournalEntryStatus.Draft)
                 throw new InvalidOperationException($"Only Draft returns can be posted. Current status: '{purchaseReturn.Status}'.");
 
+            // 1. Enforce Stock Policy Check
+            foreach (var line in purchaseReturn.Lines)
+            {
+                await StockPolicyService.ValidateStockAvailabilityAsync(
+                    _context, purchaseReturn.CompanyId, line.ProductId, purchaseReturn.WarehouseId, line.Quantity,
+                    $"Purchase Return {purchaseReturn.ReturnNumber}");
+            }
+
             // Resolve accounts from AccountingDefaults per company (ACCOUNTING_RULES §30)
             var (inventoryAccount, apAccount) =
                 await AccountResolutionHelper.ResolvePurchaseAccountsAsync(_context, purchaseReturn.CompanyId);
 
-            var jeCount = await _context.JournalEntries.CountAsync();
+            var jeCount = await _context.JournalEntries.CountAsync(j => j.CompanyId == purchaseReturn.CompanyId);
+            var fiscalYear = await _context.FiscalYears
+                .FirstOrDefaultAsync(fy => fy.CompanyId == purchaseReturn.CompanyId && fy.IsActive);
+            if (fiscalYear == null)
+                throw new InvalidOperationException("No active fiscal year found for this company.");
+
             var journalEntry = new JournalEntry
             {
+                CompanyId = purchaseReturn.CompanyId,
+                FiscalYearId = fiscalYear.Id,
                 EntryNumber = $"JE-PR-{DateTime.UtcNow:yyyyMM}-{jeCount + 1:D4}",
                 EntryDate = purchaseReturn.ReturnDate,
                 Description = $"Purchase Return {purchaseReturn.ReturnNumber} — {purchaseReturn.Supplier.Name}",
                 Status = JournalEntryStatus.Posted, PostedAt = DateTime.UtcNow,
-                PostedByUserId = postedByUserId, CreatedAt = DateTime.UtcNow
+                PostedByUserId = postedByUserId,
+                SourceDocumentType = "PurchaseReturn",
+                SourceDocumentId = purchaseReturn.Id.ToString(),
+                CreatedAt = DateTime.UtcNow
             };
 
             decimal totalReturnCost = purchaseReturn.Lines.Sum(l => l.Quantity * l.UnitCost);
@@ -416,6 +454,7 @@ public class PurchaseService : IPurchaseService
             {
                 _context.StockMovements.Add(new StockMovement
                 {
+                    CompanyId = purchaseReturn.CompanyId,
                     ProductId = line.ProductId, WarehouseId = purchaseReturn.WarehouseId,
                     MovementType = MovementType.Out, Quantity = line.Quantity,
                     UnitCost = line.UnitCost, ReferenceDocument = purchaseReturn.ReturnNumber,

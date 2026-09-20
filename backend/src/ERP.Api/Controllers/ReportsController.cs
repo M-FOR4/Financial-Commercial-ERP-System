@@ -18,6 +18,7 @@ public class ReportsController : ControllerBase
         _reportService = reportService;
     }
 
+    [HasPermission("Accounting.Account.View")]
     [HttpGet("dashboard-kpis")]
     public async Task<IActionResult> GetDashboardKpis()
     {
@@ -32,6 +33,7 @@ public class ReportsController : ControllerBase
         }
     }
 
+    [HasPermission("Accounting.TrialBalance.View")]
     [HttpPost("trial-balance")]
     public async Task<IActionResult> GetTrialBalance([FromBody] TrialBalanceRequest request)
     {
@@ -46,6 +48,7 @@ public class ReportsController : ControllerBase
         }
     }
 
+    [HasPermission("Reports.Reports.ViewAccountingReports")]
     [HttpPost("income-statement")]
     public async Task<IActionResult> GetIncomeStatement([FromBody] IncomeStatementRequest request)
     {
@@ -60,6 +63,7 @@ public class ReportsController : ControllerBase
         }
     }
 
+    [HasPermission("Reports.Reports.ViewAccountingReports")]
     [HttpPost("balance-sheet")]
     public async Task<IActionResult> GetBalanceSheet([FromBody] BalanceSheetRequest request)
     {
@@ -74,6 +78,7 @@ public class ReportsController : ControllerBase
         }
     }
 
+    [HasPermission("Accounting.GeneralLedger.ViewAccountStatement")]
     [HttpPost("statement")]
     public async Task<IActionResult> GetAccountStatement([FromBody] AccountStatementRequest request)
     {
@@ -88,10 +93,48 @@ public class ReportsController : ControllerBase
         }
     }
 
+    /// <summary>
+    /// General Ledger (دفتر الأستاذ) for one account: opening balance, every posted
+    /// transaction in the range with its counterpart account and running balance,
+    /// plus period debit/credit totals.
+    /// </summary>
+    [HasPermission("Accounting.GeneralLedger.View")]
+    [HttpGet("financial/general-ledger")]
+    public async Task<IActionResult> GetGeneralLedger(
+        [FromQuery(Name = "account_id")] Guid accountId,
+        [FromQuery(Name = "date_from")] DateTime dateFrom,
+        [FromQuery(Name = "date_to")] DateTime dateTo)
+    {
+        try
+        {
+            var result = await _reportService.GetGeneralLedgerAsync(
+                new GeneralLedgerRequest(accountId, dateFrom, dateTo));
+            return Ok(result);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { error = ex.Message });
+        }
+    }
+
+    [HasPermission("Inventory.Movement.View")]
     [HttpPost("stock-ledger")]
     public async Task<IActionResult> GetStockLedger([FromBody] StockLedgerRequest request)
     {
         var result = await _reportService.GetStockLedgerAsync(request);
+
+        // PERMISSIONS.md §17: cost data requires an independent permission.
+        // Users without Inventory.Item.ViewCost receive quantities only —
+        // UnitCost, TotalValue, RunningValue and EndingValue are zeroed.
+        if (!User.UserHasPermission("Inventory.Item.ViewCost"))
+        {
+            result = result with
+            {
+                Lines = result.Lines.Select(l => l with { UnitCost = 0m, TotalValue = 0m, RunningValue = 0m }).ToList(),
+                EndingValue = 0m
+            };
+        }
+
         return Ok(result);
     }
 }

@@ -20,12 +20,19 @@ public interface IInventoryService
     // Products
     Task<List<ProductDto>> GetProductsAsync(Guid? categoryId = null, bool? activeOnly = null, string? search = null);
     Task<ProductDto?> GetProductByIdAsync(Guid id);
+    Task<ProductDto?> LookupProductByCodeAsync(string code, Guid companyId);
     Task<ProductDto> CreateProductAsync(CreateProductRequest request, Guid companyId);
     Task<ProductDto?> UpdateProductAsync(Guid id, UpdateProductRequest request);
 
     // Stock Movements
     Task<List<StockMovementDto>> GetStockMovementsAsync(Guid? productId = null, Guid? warehouseId = null, MovementType? type = null, DateTime? fromDate = null, DateTime? toDate = null);
-    Task<StockMovementDto> CreateStockMovementAsync(CreateStockMovementRequest request, Guid? createdByUserId);
+    Task<StockMovementDto> CreateStockMovementAsync(CreateStockMovementRequest request, Guid? createdByUserId, Guid companyId);
+
+    // Stock Transfers
+    Task<StockTransferDto> CreateStockTransferDraftAsync(CreateStockTransferRequest request, Guid companyId, Guid userId);
+    Task<StockTransferDto> PostStockTransferAsync(Guid transferId, Guid userId);
+    Task<List<StockTransferDto>> GetStockTransfersAsync(Guid companyId);
+    Task<StockTransferDto?> GetStockTransferByIdAsync(Guid id);
 
     // Stock Status
     Task<List<StockStatusDto>> GetStockStatusAsync(Guid? productId = null, Guid? warehouseId = null);

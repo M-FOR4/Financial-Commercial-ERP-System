@@ -21,10 +21,25 @@ public class CashBankTests
 
     private static async Task<(Treasury treasury, Account treasuryAccount, Account targetAccount, Customer customer)> SeedTestData(AppDbContext db)
     {
+        var company = new Company { Id = Guid.NewGuid(), Name = "Test Company", DefaultCurrency = "LYD" };
+        db.Companies.Add(company);
+
+        var fiscalYear = new FiscalYear
+        {
+            Id = Guid.NewGuid(),
+            CompanyId = company.Id,
+            Name = "2026",
+            StartDate = new DateTime(2026, 1, 1),
+            EndDate = new DateTime(2026, 12, 31),
+            IsActive = true
+        };
+        db.FiscalYears.Add(fiscalYear);
+
         // Create a cash account (Asset)
         var treasuryAccount = new Account
         {
             Id = Guid.NewGuid(),
+            CompanyId = company.Id,
             Code = "1110",
             Name = "Cash on Hand",
             Type = AccountType.Asset,
@@ -37,6 +52,7 @@ public class CashBankTests
         var targetAccount = new Account
         {
             Id = Guid.NewGuid(),
+            CompanyId = company.Id,
             Code = "4100",
             Name = "Sales Revenue",
             Type = AccountType.Revenue,
@@ -49,6 +65,7 @@ public class CashBankTests
         var arAccount = new Account
         {
             Id = Guid.NewGuid(),
+            CompanyId = company.Id,
             Code = "1120",
             Name = "Accounts Receivable",
             Type = AccountType.Asset,
@@ -63,6 +80,7 @@ public class CashBankTests
         var treasury = new Treasury
         {
             Id = Guid.NewGuid(),
+            CompanyId = company.Id,
             Code = "TRE-001",
             Name = "Main Cash Box",
             Type = TreasuryType.Cash,
@@ -76,6 +94,7 @@ public class CashBankTests
         var customer = new Customer
         {
             Id = Guid.NewGuid(),
+            CompanyId = company.Id,
             Code = "C-001",
             Name = "Test Customer",
             Balance = 0m,

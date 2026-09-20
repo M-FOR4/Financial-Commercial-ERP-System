@@ -20,6 +20,7 @@ public class WarehousesController : ControllerBase
         _logger = logger;
     }
 
+    [HasPermission("Inventory.Warehouse.View")]
     [HttpGet]
     public async Task<IActionResult> GetWarehouses([FromQuery] bool? activeOnly)
     {
@@ -27,6 +28,7 @@ public class WarehousesController : ControllerBase
         return Ok(warehouses);
     }
 
+    [HasPermission("Inventory.Warehouse.View")]
     [HttpGet("{id:guid}")]
     public async Task<IActionResult> GetWarehouseById(Guid id)
     {
@@ -35,6 +37,7 @@ public class WarehousesController : ControllerBase
         return Ok(warehouse);
     }
 
+    [HasPermission("Inventory.Warehouse.Add")]
     [HttpPost]
     public async Task<IActionResult> CreateWarehouse([FromBody] CreateWarehouseRequest request)
     {
@@ -49,6 +52,7 @@ public class WarehousesController : ControllerBase
         }
     }
 
+    [HasPermission("Inventory.Warehouse.Edit")]
     [HttpPut("{id:guid}")]
     public async Task<IActionResult> UpdateWarehouse(Guid id, [FromBody] UpdateWarehouseRequest request)
     {

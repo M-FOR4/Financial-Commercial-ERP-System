@@ -1,8 +1,21 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { accountingApi, type AccountDto, type AccountType } from '../../services/accountingApi';
-import { X } from 'lucide-react';
+import { X, RefreshCw } from 'lucide-react';
 import { formatBalance, accountTypeLabelsAr } from '../../utils/format';
+
+// Column widths shared by the header row and every account row so the
+// metadata columns (code / type / status / balance / actions) stay aligned
+// on the left edge of the RTL layout.
+const COL = {
+  toggle: 'w-5 shrink-0',
+  code: 'w-20 shrink-0 px-2 text-center',
+  name: 'flex-1 min-w-0 text-start',
+  type: 'w-24 shrink-0 px-2 text-center',
+  status: 'w-24 shrink-0 px-2 text-center',
+  balance: 'w-32 shrink-0 px-2 text-start tabular-nums',
+  actions: 'w-16 shrink-0 px-2 text-center',
+};
 
 // ── Helpers ──
 
@@ -22,24 +35,28 @@ interface AccountNodeProps {
   account: AccountDto;
   depth: number;
   onEdit: (account: AccountDto) => void;
+  onAddChild: (parent: AccountDto) => void;
 }
 
-const AccountNode: React.FC<AccountNodeProps> = ({ account, depth, onEdit }) => {
-  const [expanded, setExpanded] = useState(depth < 2);
+const AccountNode: React.FC<AccountNodeProps> = ({ account, depth, onEdit, onAddChild }) => {
+  // Every level starts expanded so no account category is hidden from view.
+  const [expanded, setExpanded] = useState(true);
   const colors = accountTypeColors[account.type] || defaultTypeColor;
   const hasChildren = account.children && account.children.length > 0;
 
   return (
     <div>
       <div
-        className={`flex items-center gap-2 px-3 py-2.5 rounded-lg hover:bg-muted/40 transition-colors group cursor-pointer`}
-        style={{ paddingLeft: `${depth * 24 + 12}px` }}
+        className="flex items-center gap-2 py-2.5 pe-3 rounded-lg hover:bg-muted/40 transition-colors group cursor-pointer"
+        // RTL: children are indented from the right (inline start) edge by depth.
+        style={{ paddingInlineStart: `${depth * 20 + 8}px` }}
       >
         {/* Expand/Collapse toggle */}
         <button
-          className={`w-5 h-5 flex items-center justify-center rounded text-muted-foreground hover:text-foreground transition-colors ${
+          className={`${COL.toggle} h-5 flex items-center justify-center rounded text-muted-foreground hover:text-foreground transition-colors ${
             hasChildren ? 'visible' : 'invisible'
           }`}
+          aria-label={expanded ? 'طي الحسابات الفرعية' : 'توسيع الحسابات الفرعية'}
           onClick={(e) => {
             e.stopPropagation();
             setExpanded(!expanded);
@@ -48,57 +65,76 @@ const AccountNode: React.FC<AccountNodeProps> = ({ account, depth, onEdit }) => 
           {hasChildren ? (expanded ? '▾' : '▸') : ''}
         </button>
 
-        {/* Code badge */}
-        <span className="w-16 text-xs font-bold text-muted-foreground text-right shrink-0">
-          {account.code}
-        </span>
-
-        {/* Name */}
-        <span className={`text-sm flex-1 ${account.isHeader ? 'text-foreground font-bold' : 'text-foreground font-medium'}`}>
+        {/* Name (hierarchy level) */}
+        <span className={`${COL.name} text-sm truncate ${account.isHeader ? 'text-foreground font-bold' : 'text-foreground font-medium'}`}>
           {account.name}
         </span>
 
-        {/* Type badge */}
-        <span className={`px-2 py-0.5 text-[10px] font-semibold rounded-full border ${colors.bg} ${colors.text} ${colors.border} shrink-0`}>
-          {accountTypeLabelsAr[account.type] || account.type}
+        {/* Code */}
+        <span className={`${COL.code} text-xs font-bold text-muted-foreground font-mono`}>
+          {account.code}
         </span>
 
-        {/* Header / Active indicators */}
-        {account.isHeader && (
-          <span className="px-2 py-0.5 text-[10px] font-semibold rounded-full bg-accent/60 text-muted-foreground border border-border/40 shrink-0">
-            رئيسي
+        {/* Type */}
+        <span className={COL.type}>
+          <span className={`inline-block px-2 py-0.5 text-[10px] font-semibold rounded-full border ${colors.bg} ${colors.text} ${colors.border}`}>
+            {accountTypeLabelsAr[account.type] || account.type}
           </span>
-        )}
-        {!account.isActive && (
-          <span className="px-2 py-0.5 text-[10px] font-semibold rounded-full bg-red-900/40 text-red-400 border border-red-800/40 shrink-0">
-            غير نشط
-          </span>
-        )}
+        </span>
+
+        {/* Status: header / active */}
+        <span className={COL.status}>
+          {account.isHeader ? (
+            <span className="inline-block px-2 py-0.5 text-[10px] font-semibold rounded-full bg-accent/60 text-muted-foreground border border-border/40">
+              رئيسي
+            </span>
+          ) : !account.isActive ? (
+            <span className="inline-block px-2 py-0.5 text-[10px] font-semibold rounded-full bg-destructive/15 text-destructive border border-destructive/30">
+              غير نشط
+            </span>
+          ) : (
+            <span className="inline-block px-2 py-0.5 text-[10px] font-semibold rounded-full bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30">
+              نشط
+            </span>
+          )}
+        </span>
 
         {/* Balance */}
-        {!account.isHeader && (
-          <span className={`text-sm font-bold shrink-0 ml-2 ${account.balance >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
-            {account.balance >= 0 ? '+' : ''}{formatBalance(account.balance)}
-          </span>
-        )}
+        <span className={`${COL.balance} text-sm font-bold ${account.isHeader ? 'text-muted-foreground/40' : account.balance >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}`}>
+          {account.isHeader ? '—' : `${account.balance >= 0 ? '+' : ''}${formatBalance(account.balance)}`}
+        </span>
 
-        {/* Edit button */}
-        <button
-          className="opacity-0 group-hover:opacity-100 px-2 py-1 text-xs font-semibold text-primary hover:text-primary/80 bg-primary/10 hover:bg-primary/20 border border-primary/20 rounded-lg transition-all shrink-0"
-          onClick={(e) => {
-            e.stopPropagation();
-            onEdit(account);
-          }}
-        >
-          تعديل
-        </button>
+        {/* Row actions: inline add-child + edit */}
+        <span className={COL.actions}>
+          {/* Inline "add sub-account" on the row itself (no parent dropdown needed) */}
+          <button
+            className="opacity-0 group-hover:opacity-100 px-1 py-1 text-xs font-semibold text-emerald-600 hover:text-emerald-700 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/20 rounded-lg transition-all"
+            title={`إضافة حساب فرعي تحت ${account.code} — ${account.name}`}
+            aria-label={`إضافة حساب فرعي تحت ${account.name}`}
+            onClick={(e) => {
+              e.stopPropagation();
+              onAddChild(account);
+            }}
+          >
+            +
+          </button>
+          <button
+            className="opacity-0 group-hover:opacity-100 px-2 py-1 text-xs font-semibold text-primary hover:text-primary/80 bg-primary/10 hover:bg-primary/20 border border-primary/20 rounded-lg transition-all"
+            onClick={(e) => {
+              e.stopPropagation();
+              onEdit(account);
+            }}
+          >
+            تعديل
+          </button>
+        </span>
       </div>
 
       {/* Children */}
       {expanded && hasChildren && (
         <div>
           {account.children!.map((child) => (
-            <AccountNode key={child.id} account={child} depth={depth + 1} onEdit={onEdit} />
+            <AccountNode key={child.id} account={child} depth={depth + 1} onEdit={onEdit} onAddChild={onAddChild} />
           ))}
         </div>
       )}
@@ -127,6 +163,10 @@ const AccountModal: React.FC<AccountModalProps> = ({ isOpen, onClose, account, p
   const [isHeader, setIsHeader] = useState(account?.isHeader ?? false);
   const [isActive, setIsActive] = useState(account?.isActive ?? true);
   const [error, setError] = useState<string | null>(null);
+  // Once the user types a code we stop overwriting it with the auto-suggestion.
+  const [codeTouched, setCodeTouched] = useState(false);
+  const [suggestNonce, setSuggestNonce] = useState(0);
+  const [appliedSuggestion, setAppliedSuggestion] = useState<string | null>(null);
   const editingAccountId = account?.id ?? null;
 
   React.useEffect(() => {
@@ -138,8 +178,27 @@ const AccountModal: React.FC<AccountModalProps> = ({ isOpen, onClose, account, p
       setIsHeader(account?.isHeader ?? false);
       setIsActive(account?.isActive ?? true);
       setError(null);
+      setCodeTouched(false);
+      setAppliedSuggestion(null);
     }
   }, [isOpen, account, parentAccount]);
+
+  // Next free code for the selected parent (and account category) — the backend
+  // walks the parent's numeric block so sibling codes stay in sequence.
+  const { data: suggestion, isFetching: isSuggesting } = useQuery({
+    queryKey: ['accountSuggestCode', parentId, type, suggestNonce],
+    queryFn: () => accountingApi.suggestAccountCode(parentId, type),
+    enabled: isOpen && !isEditing,
+    retry: false,
+  });
+
+  // Adopt the suggested code as soon as it arrives. This is a render-time
+  // adjustment (the codebase convention) rather than an effect, so the field
+  // never renders an empty value before the suggestion lands.
+  if (!isEditing && !codeTouched && suggestion?.suggestedCode && appliedSuggestion !== suggestion.suggestedCode) {
+    setAppliedSuggestion(suggestion.suggestedCode);
+    setCode(suggestion.suggestedCode);
+  }
 
   const createMutation = useMutation({
     mutationFn: accountingApi.createAccount,
@@ -179,15 +238,21 @@ const AccountModal: React.FC<AccountModalProps> = ({ isOpen, onClose, account, p
 
   if (!isOpen) return null;
 
-  // Flatten all accounts for parent dropdown
-  const flatList: AccountDto[] = [];
-  const flatten = (items: AccountDto[]) => {
+  // Flatten all accounts (with their depth) for the parent dropdown
+  const flatList: { account: AccountDto; depth: number }[] = [];
+  const flatten = (items: AccountDto[], depth: number) => {
     for (const item of items) {
-      flatList.push(item);
-      if (item.children) flatten(item.children);
+      flatList.push({ account: item, depth });
+      if (item.children) flatten(item.children, depth + 1);
     }
   };
-  flatten(allAccounts);
+  flatten(allAccounts, 0);
+
+  // Parent options are limited to header accounts of the SELECTED category so a
+  // new account can never be filed under an unrelated account type.
+  const parentOptions = flatList.filter(
+    (entry) => entry.account.isHeader && entry.account.type === type && entry.account.id !== editingAccountId
+  );
 
   const isSubmitting = createMutation.isPending || updateMutation.isPending;
 
@@ -215,21 +280,32 @@ const AccountModal: React.FC<AccountModalProps> = ({ isOpen, onClose, account, p
 
           {/* Code - only editable when creating */}
           <div>
-            <label className="block text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1.5">كود الحساب</label>
+            <label className="block text-xs font-semibold tracking-wider text-muted-foreground mb-1.5">كود الحساب</label>
             <input
               type="text"
               required
               value={code}
-              onChange={(e) => setCode(e.target.value)}
+              onChange={(e) => { setCode(e.target.value); setCodeTouched(true); }}
               disabled={isEditing}
               placeholder="مثال: 1150"
-              className="w-full px-4 py-2.5 bg-input border-border rounded-lg text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full px-4 py-2.5 bg-input border-border rounded-lg text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring text-sm font-mono disabled:opacity-50 disabled:cursor-not-allowed"
             />
+            {!isEditing && (
+              <button
+                type="button"
+                onClick={() => { setCodeTouched(false); setAppliedSuggestion(null); setSuggestNonce((n) => n + 1); }}
+                disabled={isSuggesting}
+                className="mt-1.5 inline-flex items-center gap-1 text-[10px] font-semibold text-primary hover:text-primary/80 transition-colors disabled:opacity-50"
+              >
+                <RefreshCw size={11} className={isSuggesting ? 'animate-spin' : ''} />
+                اقتراح الكود التالي تلقائياً — يمكن تعديله يدوياً
+              </button>
+            )}
           </div>
 
           {/* Name */}
           <div>
-            <label className="block text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1.5">اسم الحساب</label>
+            <label className="block text-xs font-semibold tracking-wider text-muted-foreground mb-1.5">اسم الحساب</label>
             <input
               type="text"
               required
@@ -243,10 +319,10 @@ const AccountModal: React.FC<AccountModalProps> = ({ isOpen, onClose, account, p
           {/* Type - only when creating */}
           {!isEditing && (
             <div>
-              <label className="block text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1.5">نوع الحساب</label>
+              <label className="block text-xs font-semibold tracking-wider text-muted-foreground mb-1.5">نوع الحساب</label>
               <select
                 value={type}
-                onChange={(e) => setType(e.target.value as AccountType)}
+                onChange={(e) => { setType(e.target.value as AccountType); setParentId(null); setCodeTouched(false); }}
                 className="w-full px-4 py-2.5 bg-input border-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
               >
                 <option value="Asset">أصول</option>
@@ -261,21 +337,24 @@ const AccountModal: React.FC<AccountModalProps> = ({ isOpen, onClose, account, p
           {/* Parent Account - only when creating */}
           {!isEditing && (
             <div>
-              <label className="block text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1.5">الحساب الأصل (اختياري)</label>
+              <label className="block text-xs font-semibold tracking-wider text-muted-foreground mb-1.5">الحساب الأصل (اختياري)</label>
               <select
                 value={parentId || ''}
-                onChange={(e) => setParentId(e.target.value || null)}
+                onChange={(e) => { setParentId(e.target.value || null); setCodeTouched(false); }}
                 className="w-full px-4 py-2.5 bg-input border-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-ring text-sm"
               >
                 <option value="">بدون أصل (المستوى الجذر)</option>
-                {flatList
-                  .filter((a) => a.isHeader && a.type === type && a.id !== editingAccountId)
-                  .map((a) => (
-                    <option key={a.id} value={a.id}>
-                      {a.code} — {a.name}
-                    </option>
-                  ))}
+                {parentOptions.map(({ account: a, depth }) => (
+                  <option key={a.id} value={a.id}>
+                    {'— '.repeat(depth)}{a.code} — {a.name}
+                  </option>
+                ))}
               </select>
+              {parentOptions.length === 0 && (
+                <p className="text-[10px] text-amber-600 dark:text-amber-400 mt-1">
+                  لا يوجد حساب رئيسي من نفس النوع — أنشئ حساباً رئيسياً أولاً أو أضف هذا الحساب في المستوى الجذر.
+                </p>
+              )}
             </div>
           )}
 
@@ -400,9 +479,9 @@ export const Accounts: React.FC = () => {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">شجرة الحسابات</h1>
+          <h1 className="text-2xl font-bold text-foreground">دليل الحسابات</h1>
           <p className="text-sm text-muted-foreground mt-1">
-            شجرة الحسابات الهرمية — {totalAccounts} حساب
+            دليل الحسابات الهرمي — {totalAccounts} حساب
           </p>
         </div>
         <button
@@ -461,7 +540,7 @@ export const Accounts: React.FC = () => {
       {/* Error state */}
       {error && (
         <div className="p-4 bg-red-950/50 border border-red-800/80 rounded-lg text-red-300 text-sm">
-          فشل في تحميل شجرة الحسابات. تأكد من تشغيل الخادم.
+          فشل في تحميل دليل الحسابات. تأكد من تشغيل الخادم.
         </div>
       )}
 
@@ -469,22 +548,22 @@ export const Accounts: React.FC = () => {
       {isLoading && (
         <div className="flex items-center justify-center p-12 text-muted-foreground gap-3">
           <div className="w-5 h-5 border-2 border-primary border-t-transparent rounded-full animate-spin" />
-          <span>جاري تحميل شجرة الحسابات...</span>
+          <span>جاري تحميل دليل الحسابات...</span>
         </div>
       )}
 
       {/* COA Tree */}
       {!isLoading && !error && (
         <div className="bg-card border border-border rounded-2xl overflow-hidden">
-          {/* Column Headers */}
-          <div className="flex items-center gap-2 px-3 py-2.5 bg-muted/40 border-b border-border text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-            <span className="w-5 shrink-0" />
-            <span className="w-14 text-right shrink-0">الكود</span>
-            <span className="flex-1">اسم الحساب</span>
-            <span className="w-20 text-center shrink-0">النوع</span>
-            <span className="w-16 text-center shrink-0">الحالة</span>
-            <span className="w-32 text-right shrink-0">الرصيد</span>
-            <span className="w-14 shrink-0" />
+          {/* Column Headers — same widths as the rows below */}
+          <div className="flex items-center gap-2 py-2.5 pe-3 ps-2 bg-muted/40 border-b border-border text-[10px] font-semibold tracking-wider text-muted-foreground">
+            <span className={COL.toggle} />
+            <span className={COL.name}>اسم الحساب</span>
+            <span className={COL.code}>الكود</span>
+            <span className={COL.type}>النوع</span>
+            <span className={COL.status}>الحالة</span>
+            <span className={COL.balance}>الرصيد</span>
+            <span className={COL.actions}>الإجراءات</span>
           </div>
 
           {/* Account rows */}
@@ -496,10 +575,10 @@ export const Accounts: React.FC = () => {
             ) : (
               displayedAccounts.map((account) => (
                 <div key={account.id}>
-                  <AccountNode account={account} depth={0} onEdit={handleEdit} />
+                  <AccountNode account={account} depth={0} onEdit={handleEdit} onAddChild={handleAddChild} />
                   {/* Quick-add child button for header accounts */}
                   {account.isHeader && (
-                    <div style={{ paddingLeft: '36px' }}>
+                    <div style={{ paddingInlineStart: '34px' }}>
                       <button
                         onClick={() => handleAddChild(account)}
                         className="text-xs text-primary hover:text-primary/70 mb-1 flex items-center gap-1 transition-colors"

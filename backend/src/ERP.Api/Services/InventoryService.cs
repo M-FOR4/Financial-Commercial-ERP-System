@@ -11,11 +11,19 @@ public class InventoryService : IInventoryService
 {
     private readonly AppDbContext _context;
     private readonly ILogger<InventoryService> _logger;
+    private readonly IAuditService? _auditService;
+    private readonly ICodeGeneratorService? _codeGenerator;
 
-    public InventoryService(AppDbContext context, ILogger<InventoryService> logger)
+    public InventoryService(
+        AppDbContext context,
+        ILogger<InventoryService> logger,
+        IAuditService? auditService = null,
+        ICodeGeneratorService? codeGenerator = null)
     {
         _context = context;
         _logger = logger;
+        _auditService = auditService;
+        _codeGenerator = codeGenerator;
     }
 
     // ═══════════════════════════════════════════
@@ -50,12 +58,21 @@ public class InventoryService : IInventoryService
 
     public async Task<CategoryDto> CreateCategoryAsync(CreateCategoryRequest request)
     {
-        if (await _context.Categories.AnyAsync(c => c.Code == request.Code.Trim()))
-            throw new InvalidOperationException($"A category with code '{request.Code}' already exists.");
+        var defaultCompany = await _context.Companies.FirstOrDefaultAsync();
+        var companyId = defaultCompany?.Id ?? Guid.Empty;
+        return await CreateCategoryAsync(request, companyId);
+    }
+
+    public async Task<CategoryDto> CreateCategoryAsync(CreateCategoryRequest request, Guid companyId)
+    {
+        var code = request.Code.Trim();
+        if (await _context.Categories.AnyAsync(c => c.CompanyId == companyId && c.Code == code))
+            throw new InvalidOperationException($"A category with code '{code}' already exists for this company.");
 
         var category = new Category
         {
-            Code = request.Code.Trim(),
+            CompanyId = companyId,
+            Code = code,
             Name = request.Name.Trim(),
             Description = request.Description?.Trim(),
             IsActive = request.IsActive,
@@ -111,12 +128,21 @@ public class InventoryService : IInventoryService
 
     public async Task<WarehouseDto> CreateWarehouseAsync(CreateWarehouseRequest request)
     {
-        if (await _context.Warehouses.AnyAsync(w => w.Code == request.Code.Trim()))
-            throw new InvalidOperationException($"A warehouse with code '{request.Code}' already exists.");
+        var defaultCompany = await _context.Companies.FirstOrDefaultAsync();
+        var companyId = defaultCompany?.Id ?? Guid.Empty;
+        return await CreateWarehouseAsync(request, companyId);
+    }
+
+    public async Task<WarehouseDto> CreateWarehouseAsync(CreateWarehouseRequest request, Guid companyId)
+    {
+        var code = request.Code.Trim();
+        if (await _context.Warehouses.AnyAsync(w => w.CompanyId == companyId && w.Code == code))
+            throw new InvalidOperationException($"A warehouse with code '{code}' already exists for this company.");
 
         var warehouse = new Warehouse
         {
-            Code = request.Code.Trim(),
+            CompanyId = companyId,
+            Code = code,
             Name = request.Name.Trim(),
             Location = request.Location?.Trim(),
             IsActive = request.IsActive,
@@ -163,7 +189,7 @@ public class InventoryService : IInventoryService
         if (!string.IsNullOrWhiteSpace(search))
         {
             var s = search.Trim().ToLower();
-            query = query.Where(p => p.SKU.ToLower().Contains(s) || p.Name.ToLower().Contains(s));
+            query = query.Where(p => p.SKU.ToLower().Contains(s) || p.Name.ToLower().Contains(s) || (p.Barcode != null && p.Barcode.ToLower().Contains(s)));
         }
 
         var products = await query.OrderBy(p => p.SKU).ToListAsync();
@@ -180,37 +206,65 @@ public class InventoryService : IInventoryService
         return p == null ? null : MapToProductDto(p);
     }
 
+    public async Task<ProductDto?> LookupProductByCodeAsync(string code, Guid companyId)
+    {
+        if (string.IsNullOrWhiteSpace(code))
+            return null;
+
+        var cleanCode = code.Trim();
+
+        var product = await _context.Products
+            .Include(p => p.Category)
+            .AsNoTracking()
+            .FirstOrDefaultAsync(p => p.CompanyId == companyId && (p.SKU == cleanCode || p.Barcode == cleanCode));
+
+        return product == null ? null : MapToProductDto(product);
+    }
+
     public async Task<ProductDto> CreateProductAsync(CreateProductRequest request, Guid companyId)
     {
-        if (await _context.Products.AnyAsync(p => p.SKU == request.SKU.Trim()))
-            throw new InvalidOperationException($"A product with SKU '{request.SKU}' already exists.");
+        // Auto-generate the SKU when the caller omits it (auto-gen policy).
+        var sku = request.SKU?.Trim();
+        if (string.IsNullOrEmpty(sku))
+        {
+            if (_codeGenerator == null)
+                throw new InvalidOperationException("SKU is required when the code generator is unavailable.");
+            sku = await _codeGenerator.NextProductCodeAsync(companyId);
+        }
+        else if (await _context.Products.AnyAsync(p => p.CompanyId == companyId && p.SKU == sku))
+            throw new InvalidOperationException($"A product with SKU '{sku}' already exists for this company.");
+
+        var barcode = request.Barcode?.Trim();
+        if (!string.IsNullOrEmpty(barcode) && await _context.Products.AnyAsync(p => p.CompanyId == companyId && p.Barcode == barcode))
+            throw new InvalidOperationException($"A product with Barcode '{barcode}' already exists for this company.");
 
         var category = await _context.Categories.FindAsync(request.CategoryId);
         if (category == null)
             throw new InvalidOperationException("Specified category does not exist.");
 
-        // Resolve BaseUnitId from UnitOfMeasure string
+        // Resolve BaseUnitId from UnitOfMeasure string safely
         var unitName = request.UnitOfMeasure?.Trim();
         var baseUnit = await _context.Units.FirstOrDefaultAsync(u =>
             u.Name == unitName || u.Symbol == unitName ||
-            u.Name == unitName!.Split(' ').Last());
+            (unitName != null && u.Name == unitName.Split(' ').Last()));
         if (baseUnit == null)
         {
-            // Fallback: try "قطعة" (Piece) as default
-            baseUnit = await _context.Units.FirstOrDefaultAsync(u => u.Name == "قطعة");
-            baseUnit ??= await _context.Units.FirstOrDefaultAsync();
+            baseUnit = await _context.Units.FirstOrDefaultAsync(u => u.Name == "قطعة")
+                ?? await _context.Units.FirstOrDefaultAsync();
         }
 
         var product = new Product
         {
             CompanyId = companyId,
-            SKU = request.SKU.Trim(),
+            SKU = sku,
+            Barcode = barcode,
             Name = request.Name.Trim(),
             Description = request.Description?.Trim(),
             CategoryId = request.CategoryId,
             UnitOfMeasure = request.UnitOfMeasure?.Trim(),
             BaseUnitId = baseUnit?.Id ?? Guid.Empty,
             PurchasePrice = request.PurchasePrice,
+            AvgCost = request.PurchasePrice,
             SellingPrice = request.SellingPrice,
             CurrentStock = 0m,
             MinStockLevel = request.MinStockLevel,
@@ -236,10 +290,15 @@ public class InventoryService : IInventoryService
         if (category == null)
             throw new InvalidOperationException("Specified category does not exist.");
 
+        var barcode = request.Barcode?.Trim();
+        if (!string.IsNullOrEmpty(barcode) && await _context.Products.AnyAsync(p => p.CompanyId == product.CompanyId && p.Id != id && p.Barcode == barcode))
+            throw new InvalidOperationException($"A product with Barcode '{barcode}' already exists for this company.");
+
         product.Name = request.Name.Trim();
         product.Description = request.Description?.Trim();
         product.CategoryId = request.CategoryId;
         product.UnitOfMeasure = request.UnitOfMeasure.Trim();
+        product.Barcode = barcode;
         product.PurchasePrice = request.PurchasePrice;
         product.SellingPrice = request.SellingPrice;
         product.MinStockLevel = request.MinStockLevel;
@@ -248,7 +307,6 @@ public class InventoryService : IInventoryService
 
         await _context.SaveChangesAsync();
 
-        // Reload with category included
         await _context.Entry(product).Reference(p => p.Category).LoadAsync();
         return MapToProductDto(product);
     }
@@ -261,14 +319,13 @@ public class InventoryService : IInventoryService
         Guid? productId = null, Guid? warehouseId = null,
         MovementType? type = null, DateTime? fromDate = null, DateTime? toDate = null)
     {
-        // Npgsql requires UTC Kind for timestamptz comparisons; query-string dates arrive as Unspecified.
-        // (Treating them as UTC via SpecifyKind is correct — ToUniversalTime would shift naive dates by the server offset.)
         fromDate = fromDate.ToUtc();
         toDate = toDate.ToUtc();
 
         var query = _context.StockMovements
             .Include(sm => sm.Product)
             .Include(sm => sm.Warehouse)
+            .Include(sm => sm.DestinationWarehouse)
             .Include(sm => sm.CreatedByUser)
             .AsNoTracking()
             .AsQueryable();
@@ -277,7 +334,7 @@ public class InventoryService : IInventoryService
             query = query.Where(sm => sm.ProductId == productId.Value);
 
         if (warehouseId.HasValue)
-            query = query.Where(sm => sm.WarehouseId == warehouseId.Value);
+            query = query.Where(sm => sm.WarehouseId == warehouseId.Value || sm.DestinationWarehouseId == warehouseId.Value);
 
         if (type.HasValue)
             query = query.Where(sm => sm.MovementType == type.Value);
@@ -295,8 +352,18 @@ public class InventoryService : IInventoryService
     public async Task<StockMovementDto> CreateStockMovementAsync(CreateStockMovementRequest request, Guid? createdByUserId)
     {
         var product = await _context.Products.FindAsync(request.ProductId);
+        var companyId = product?.CompanyId ?? Guid.Empty;
+        return await CreateStockMovementAsync(request, createdByUserId, companyId);
+    }
+
+    public async Task<StockMovementDto> CreateStockMovementAsync(CreateStockMovementRequest request, Guid? createdByUserId, Guid companyId)
+    {
+        var product = await _context.Products.FindAsync(request.ProductId);
         if (product == null)
             throw new InvalidOperationException("Specified product does not exist.");
+
+        if (companyId == Guid.Empty)
+            companyId = product.CompanyId;
 
         var warehouse = await _context.Warehouses.FindAsync(request.WarehouseId);
         if (warehouse == null)
@@ -305,54 +372,67 @@ public class InventoryService : IInventoryService
         if (!warehouse.IsActive)
             throw new InvalidOperationException($"Warehouse '{warehouse.Name}' is not active.");
 
-        // For Out and Transfer movements, check sufficient stock
-        if (request.MovementType is MovementType.Out or MovementType.Transfer)
+        // Enforce central stock policy check for outbound / negative adjustment actions
+        if (request.MovementType is MovementType.Out or MovementType.TransferOut ||
+            (request.MovementType == MovementType.Adjustment && request.Quantity < 0))
         {
-            if (product.CurrentStock < request.Quantity)
-                throw new InvalidOperationException(
-                    $"Insufficient stock for '{product.SKU}'. Available: {product.CurrentStock}, Requested: {request.Quantity}. " +
-                    "Negative stock policy: BLOCK (V1 default).");
+            var reqQty = Math.Abs(request.Quantity);
+            await StockPolicyService.ValidateStockAvailabilityAsync(
+                _context, companyId, product.Id, warehouse.Id, reqQty,
+                $"Manual stock movement ({request.MovementType})");
         }
 
         var isRelational = _context.Database.IsRelational();
         using var transaction = isRelational ? await _context.Database.BeginTransactionAsync() : null;
         try
         {
-            // Update product stock based on movement type
-            switch (request.MovementType)
+            decimal previousStock = product.CurrentStock;
+            decimal previousAvgCost = product.AvgCost;
+
+            // Recalculate stock and Weighted Average Cost
+            if (request.MovementType == MovementType.In)
             {
-                case MovementType.In:
-                case MovementType.Adjustment when request.Quantity >= 0:
+                var newTotalQty = product.CurrentStock + request.Quantity;
+                if (newTotalQty > 0m)
+                {
+                    product.AvgCost = JournalBuilder.Round(
+                        ((product.CurrentStock * product.AvgCost) + (request.Quantity * request.UnitCost)) / newTotalQty);
+                }
+                product.CurrentStock += request.Quantity;
+                product.PurchasePrice = request.UnitCost;
+            }
+            else if (request.MovementType == MovementType.Out)
+            {
+                product.CurrentStock -= request.Quantity;
+            }
+            else if (request.MovementType == MovementType.Adjustment)
+            {
+                if (request.Quantity >= 0m)
+                {
+                    var newTotalQty = product.CurrentStock + request.Quantity;
+                    if (newTotalQty > 0m)
+                    {
+                        product.AvgCost = JournalBuilder.Round(
+                            ((product.CurrentStock * product.AvgCost) + (request.Quantity * request.UnitCost)) / newTotalQty);
+                    }
                     product.CurrentStock += request.Quantity;
-                    break;
-
-                case MovementType.Out:
-                    product.CurrentStock -= request.Quantity;
-                    break;
-
-                case MovementType.Adjustment when request.Quantity < 0:
-                    var absQty = Math.Abs(request.Quantity);
-                    if (product.CurrentStock < absQty)
-                        throw new InvalidOperationException(
-                            $"Insufficient stock for adjustment. Available: {product.CurrentStock}, Adjustment: {absQty}.");
-                    product.CurrentStock -= absQty;
-                    break;
-
-                case MovementType.Transfer:
-                    // Transfer out reduces stock (TransferIn would be a separate In movement)
-                    product.CurrentStock -= request.Quantity;
-                    break;
+                }
+                else
+                {
+                    product.CurrentStock -= Math.Abs(request.Quantity);
+                }
             }
 
             product.UpdatedAt = DateTime.UtcNow;
 
             var movement = new StockMovement
             {
+                CompanyId = companyId,
                 ProductId = request.ProductId,
                 WarehouseId = request.WarehouseId,
                 MovementType = request.MovementType,
                 Quantity = Math.Abs(request.Quantity),
-                UnitCost = request.UnitCost,
+                UnitCost = request.UnitCost > 0m ? request.UnitCost : product.AvgCost,
                 ReferenceDocument = request.ReferenceDocument?.Trim(),
                 Notes = request.Notes?.Trim(),
                 MovementDate = request.MovementDate.ToUtc() ?? DateTime.UtcNow,
@@ -361,16 +441,77 @@ public class InventoryService : IInventoryService
             };
 
             _context.StockMovements.Add(movement);
+
+            // Generate balancing Journal Entry for manual stock movements
+            var (invAcc, gainAcc, lossAcc) = await AccountResolutionHelper.ResolveInventoryAdjustmentAccountsAsync(_context, companyId);
+            var jeCount = await _context.JournalEntries.CountAsync(j => j.CompanyId == companyId);
+            var fiscalYear = await _context.FiscalYears.FirstOrDefaultAsync(fy => fy.CompanyId == companyId && fy.IsActive);
+
+            if (fiscalYear != null)
+            {
+                var je = new JournalEntry
+                {
+                    CompanyId = companyId,
+                    FiscalYearId = fiscalYear.Id,
+                    EntryNumber = $"JE-INV-{DateTime.UtcNow:yyyyMM}-{jeCount + 1:D4}",
+                    EntryDate = movement.MovementDate,
+                    Description = $"Manual Stock Movement ({movement.MovementType}) — {product.Name}",
+                    Status = JournalEntryStatus.Posted,
+                    PostedAt = DateTime.UtcNow,
+                    PostedByUserId = createdByUserId,
+                    SourceDocumentType = "StockMovement",
+                    SourceDocumentId = movement.Id.ToString(),
+                    CreatedAt = DateTime.UtcNow
+                };
+
+                var movementTotal = movement.TotalCost;
+                if (movement.MovementType == MovementType.In || (movement.MovementType == MovementType.Adjustment && request.Quantity >= 0m))
+                {
+                    // Inward adjustment: Debit Inventory, Credit Gain Account
+                    je.Lines.Add(new JournalEntryLine { AccountId = invAcc.Id, Debit = movementTotal, Credit = 0m, Description = $"Inventory Gain — {product.Name}" });
+                    je.Lines.Add(new JournalEntryLine { AccountId = gainAcc.Id, Debit = 0m, Credit = movementTotal, Description = $"Inventory Adjustment Gain — {product.Name}" });
+                }
+                else if (movement.MovementType == MovementType.Out || (movement.MovementType == MovementType.Adjustment && request.Quantity < 0m))
+                {
+                    // Outward adjustment: Debit Loss Account, Credit Inventory
+                    je.Lines.Add(new JournalEntryLine { AccountId = lossAcc.Id, Debit = movementTotal, Credit = 0m, Description = $"Inventory Adjustment Loss — {product.Name}" });
+                    je.Lines.Add(new JournalEntryLine { AccountId = invAcc.Id, Debit = 0m, Credit = movementTotal, Description = $"Inventory Loss — {product.Name}" });
+                }
+
+                if (je.Lines.Count > 0)
+                {
+                    je.Lines.ToList().NormalizeAndBalance();
+                    _context.JournalEntries.Add(je);
+                    await _context.SaveChangesAsync();
+
+                    foreach (var line in je.Lines)
+                    {
+                        line.ApplyPostingToAccountBalance(_context);
+                    }
+                }
+            }
+
             await _context.SaveChangesAsync();
+
             if (transaction != null)
             {
                 await transaction.CommitAsync();
             }
 
+            // Record audit trail via IAuditService
+            if (_auditService != null)
+            {
+                await _auditService.LogAsync(
+                    createdByUserId,
+                    "StockMovement.Create",
+                    "StockMovement",
+                    movement.Id.ToString(),
+                    $"Stock movement {request.MovementType}: {request.Quantity} of product {product.SKU}. Stock change: {previousStock} -> {product.CurrentStock}. AvgCost: {previousAvgCost} -> {product.AvgCost}");
+            }
+
             _logger.LogInformation("Stock movement created: {Type} {Qty} × {Product} in {Warehouse}",
                 request.MovementType, request.Quantity, product.SKU, warehouse.Name);
 
-            // Reload with navigation properties
             return await ReloadStockMovementAsync(movement.Id)
                 ?? throw new InvalidOperationException("Failed to reload created stock movement.");
         }
@@ -382,6 +523,189 @@ public class InventoryService : IInventoryService
             }
             throw;
         }
+    }
+
+    // ═══════════════════════════════════════════
+    //  Stock Transfers
+    // ═══════════════════════════════════════════
+
+    public async Task<StockTransferDto> CreateStockTransferDraftAsync(CreateStockTransferRequest request, Guid companyId, Guid userId)
+    {
+        if (request.SourceWarehouseId == request.DestinationWarehouseId)
+            throw new InvalidOperationException("Source and Destination warehouses must be different.");
+
+        var sourceWh = await _context.Warehouses.FindAsync(request.SourceWarehouseId);
+        if (sourceWh == null || !sourceWh.IsActive)
+            throw new InvalidOperationException("Source warehouse is invalid or inactive.");
+
+        var destWh = await _context.Warehouses.FindAsync(request.DestinationWarehouseId);
+        if (destWh == null || !destWh.IsActive)
+            throw new InvalidOperationException("Destination warehouse is invalid or inactive.");
+
+        var count = await _context.StockTransfers.CountAsync(st => st.CompanyId == companyId);
+        var transferNumber = $"ST-{DateTime.UtcNow:yyyyMM}-{count + 1:D4}";
+
+        var transfer = new StockTransfer
+        {
+            CompanyId = companyId,
+            TransferNumber = transferNumber,
+            SourceWarehouseId = request.SourceWarehouseId,
+            DestinationWarehouseId = request.DestinationWarehouseId,
+            TransferDate = request.TransferDate.ToUtc() ?? DateTime.UtcNow,
+            Status = JournalEntryStatus.Draft,
+            Notes = request.Notes?.Trim(),
+            CreatedByUserId = userId,
+            CreatedAt = DateTime.UtcNow
+        };
+
+        foreach (var lineReq in request.Lines)
+        {
+            var product = await _context.Products.FindAsync(lineReq.ProductId);
+            if (product == null)
+                throw new InvalidOperationException($"Product with ID '{lineReq.ProductId}' does not exist.");
+
+            transfer.Lines.Add(new StockTransferLine
+            {
+                ProductId = lineReq.ProductId,
+                Quantity = lineReq.Quantity,
+                UnitCost = lineReq.UnitCost > 0m ? lineReq.UnitCost : product.AvgCost,
+                Notes = lineReq.Notes?.Trim(),
+                CreatedAt = DateTime.UtcNow
+            });
+        }
+
+        _context.StockTransfers.Add(transfer);
+        await _context.SaveChangesAsync();
+
+        return (await GetStockTransferByIdAsync(transfer.Id))!;
+    }
+
+    public async Task<StockTransferDto> PostStockTransferAsync(Guid transferId, Guid userId)
+    {
+        var transfer = await _context.StockTransfers
+            .Include(st => st.Lines)
+            .ThenInclude(l => l.Product)
+            .FirstOrDefaultAsync(st => st.Id == transferId);
+
+        if (transfer == null)
+            throw new InvalidOperationException("Stock transfer document not found.");
+
+        if (transfer.Status == JournalEntryStatus.Posted)
+            throw new InvalidOperationException("Stock transfer has already been posted.");
+
+        var isRelational = _context.Database.IsRelational();
+        using var transaction = isRelational ? await _context.Database.BeginTransactionAsync() : null;
+        try
+        {
+            // 1. Validate source stock availability for all lines
+            foreach (var line in transfer.Lines)
+            {
+                await StockPolicyService.ValidateStockAvailabilityAsync(
+                    _context, transfer.CompanyId, line.ProductId, transfer.SourceWarehouseId, line.Quantity,
+                    $"Stock Transfer {transfer.TransferNumber}");
+            }
+
+            // 2. Create atomic linked outbound and inbound movements per line
+            foreach (var line in transfer.Lines)
+            {
+                // Outbound movement from source warehouse
+                var outMovement = new StockMovement
+                {
+                    CompanyId = transfer.CompanyId,
+                    ProductId = line.ProductId,
+                    WarehouseId = transfer.SourceWarehouseId,
+                    DestinationWarehouseId = transfer.DestinationWarehouseId,
+                    MovementType = MovementType.TransferOut,
+                    Quantity = line.Quantity,
+                    UnitCost = line.UnitCost,
+                    ReferenceDocument = transfer.TransferNumber,
+                    Notes = $"Transfer Out -> Dest WH ({transfer.DestinationWarehouseId})",
+                    MovementDate = transfer.TransferDate,
+                    CreatedByUserId = userId,
+                    CreatedAt = DateTime.UtcNow
+                };
+
+                _context.StockMovements.Add(outMovement);
+                await _context.SaveChangesAsync();
+
+                // Inbound movement into destination warehouse linked by SourceMovementId
+                var inMovement = new StockMovement
+                {
+                    CompanyId = transfer.CompanyId,
+                    ProductId = line.ProductId,
+                    WarehouseId = transfer.DestinationWarehouseId,
+                    DestinationWarehouseId = transfer.SourceWarehouseId,
+                    SourceMovementId = outMovement.Id,
+                    MovementType = MovementType.TransferIn,
+                    Quantity = line.Quantity,
+                    UnitCost = line.UnitCost,
+                    ReferenceDocument = transfer.TransferNumber,
+                    Notes = $"Transfer In <- Source WH ({transfer.SourceWarehouseId})",
+                    MovementDate = transfer.TransferDate,
+                    CreatedByUserId = userId,
+                    CreatedAt = DateTime.UtcNow
+                };
+
+                _context.StockMovements.Add(inMovement);
+            }
+
+            transfer.Status = JournalEntryStatus.Posted;
+            transfer.PostedByUserId = userId;
+            transfer.UpdatedAt = DateTime.UtcNow;
+
+            await _context.SaveChangesAsync();
+
+            if (transaction != null)
+                await transaction.CommitAsync();
+
+            if (_auditService != null)
+            {
+                await _auditService.LogAsync(
+                    userId,
+                    "StockTransfer.Post",
+                    "StockTransfer",
+                    transfer.Id.ToString(),
+                    $"Posted Stock Transfer {transfer.TransferNumber} from WH {transfer.SourceWarehouseId} to WH {transfer.DestinationWarehouseId}. Lines count: {transfer.Lines.Count}");
+            }
+
+            return (await GetStockTransferByIdAsync(transfer.Id))!;
+        }
+        catch
+        {
+            if (transaction != null)
+                await transaction.RollbackAsync();
+            throw;
+        }
+    }
+
+    public async Task<List<StockTransferDto>> GetStockTransfersAsync(Guid companyId)
+    {
+        var transfers = await _context.StockTransfers
+            .Include(st => st.SourceWarehouse)
+            .Include(st => st.DestinationWarehouse)
+            .Include(st => st.JournalEntry)
+            .Include(st => st.Lines)
+            .ThenInclude(l => l.Product)
+            .AsNoTracking()
+            .Where(st => st.CompanyId == companyId)
+            .OrderByDescending(st => st.TransferDate)
+            .ToListAsync();
+
+        return transfers.Select(MapToStockTransferDto).ToList();
+    }
+
+    public async Task<StockTransferDto?> GetStockTransferByIdAsync(Guid id)
+    {
+        var st = await _context.StockTransfers
+            .Include(x => x.SourceWarehouse)
+            .Include(x => x.DestinationWarehouse)
+            .Include(x => x.JournalEntry)
+            .Include(x => x.Lines)
+            .ThenInclude(l => l.Product)
+            .AsNoTracking()
+            .FirstOrDefaultAsync(x => x.Id == id);
+
+        return st == null ? null : MapToStockTransferDto(st);
     }
 
     // ═══════════════════════════════════════════
@@ -417,15 +741,18 @@ public class InventoryService : IInventoryService
 
             var warehouseStocks = movements
                 .GroupBy(sm => sm.WarehouseId)
-                .Select(g => new WarehouseStockDto(
-                    g.Key,
-                    g.First().Warehouse.Code,
-                    g.First().Warehouse.Name,
-                    g.Sum(sm => sm.MovementType == MovementType.In || sm.MovementType == MovementType.Adjustment
-                        ? sm.Quantity
-                        : -sm.Quantity)
-                ))
-                .Where(ws => ws.Quantity != 0)
+                .Select(g =>
+                {
+                    var inQty = g.Where(sm => sm.MovementType == MovementType.In || sm.MovementType == MovementType.TransferIn || (sm.MovementType == MovementType.Adjustment && sm.Quantity >= 0m)).Sum(sm => Math.Abs(sm.Quantity));
+                    var outQty = g.Where(sm => sm.MovementType == MovementType.Out || sm.MovementType == MovementType.TransferOut || sm.MovementType == MovementType.Transfer || (sm.MovementType == MovementType.Adjustment && sm.Quantity < 0m)).Sum(sm => Math.Abs(sm.Quantity));
+                    return new WarehouseStockDto(
+                        g.Key,
+                        g.First().Warehouse.Code,
+                        g.First().Warehouse.Name,
+                        inQty - outQty
+                    );
+                })
+                .Where(ws => ws.Quantity != 0m)
                 .OrderBy(ws => ws.WarehouseCode)
                 .ToList();
 
@@ -465,7 +792,7 @@ public class InventoryService : IInventoryService
     }
 
     // ═══════════════════════════════════════════
-    //  Private Helpers
+    //  Private Mapping Helpers
     // ═══════════════════════════════════════════
 
     private static WarehouseDto MapToWarehouseDto(Warehouse w) =>
@@ -473,10 +800,10 @@ public class InventoryService : IInventoryService
 
     private static ProductDto MapToProductDto(Product p) =>
         new(
-            p.Id, p.SKU, p.Name, p.Description,
+            p.Id, p.SKU, p.Barcode, p.Name, p.Description,
             p.CategoryId, p.Category?.Name ?? string.Empty,
-            p.UnitOfMeasure,
-            p.PurchasePrice, p.SellingPrice,
+            p.UnitOfMeasure ?? "Piece",
+            p.PurchasePrice, p.AvgCost, p.SellingPrice,
             p.CurrentStock, p.MinStockLevel,
             p.CurrentStock <= p.MinStockLevel,
             p.IsActive, p.CreatedAt
@@ -487,6 +814,8 @@ public class InventoryService : IInventoryService
             sm.Id,
             sm.ProductId, sm.Product?.SKU ?? string.Empty, sm.Product?.Name ?? string.Empty,
             sm.WarehouseId, sm.Warehouse?.Name ?? string.Empty,
+            sm.DestinationWarehouseId, sm.DestinationWarehouse?.Name,
+            sm.SourceMovementId,
             sm.MovementType, sm.MovementType.ToString(),
             sm.Quantity, sm.UnitCost, sm.TotalCost,
             sm.ReferenceDocument, sm.Notes,
@@ -495,11 +824,30 @@ public class InventoryService : IInventoryService
             sm.CreatedAt
         );
 
+    private static StockTransferDto MapToStockTransferDto(StockTransfer st) =>
+        new(
+            st.Id,
+            st.TransferNumber,
+            st.SourceWarehouseId, st.SourceWarehouse?.Name ?? string.Empty,
+            st.DestinationWarehouseId, st.DestinationWarehouse?.Name ?? string.Empty,
+            st.TransferDate,
+            st.Status, st.Status.ToString(),
+            st.Lines.Sum(l => l.Quantity),
+            st.Notes,
+            st.JournalEntryId, st.JournalEntry?.EntryNumber,
+            st.Lines.Select(l => new StockTransferLineDto(
+                l.Id, l.ProductId, l.Product?.SKU ?? string.Empty, l.Product?.Name ?? string.Empty,
+                l.Quantity, l.UnitCost, l.Notes
+            )).ToList(),
+            st.CreatedAt
+        );
+
     private async Task<StockMovementDto?> ReloadStockMovementAsync(Guid id)
     {
         var sm = await _context.StockMovements
             .Include(x => x.Product)
             .Include(x => x.Warehouse)
+            .Include(x => x.DestinationWarehouse)
             .Include(x => x.CreatedByUser)
             .AsNoTracking()
             .FirstOrDefaultAsync(x => x.Id == id);

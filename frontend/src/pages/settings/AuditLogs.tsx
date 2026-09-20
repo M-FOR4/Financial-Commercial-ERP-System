@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../../services/api';
+import { formatDateTime } from '../../utils/format';
 
 interface AuditLogEntry {
   id: string;
@@ -113,13 +114,13 @@ export const AuditLogs: React.FC = () => {
           <table className="w-full">
             <thead>
               <tr className="border-b border-border bg-muted/40">
-                <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase">التاريخ والوقت</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase">المستخدم</th>
-                <th className="px-4 py-3 text-center text-xs font-semibold text-muted-foreground uppercase">الإجراء</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase">الكيان</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase">معرّف الكيان</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase">التفاصيل</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase">IP</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground">التاريخ والوقت</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground">المستخدم</th>
+                <th className="px-4 py-3 text-center text-xs font-semibold text-muted-foreground">الإجراء</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground">الكيان</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground">معرّف الكيان</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground">التفاصيل</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground">IP</th>
               </tr>
             </thead>
             <tbody>
@@ -133,7 +134,7 @@ export const AuditLogs: React.FC = () => {
                   return (
                     <tr key={log.id} className="border-b border-border hover:bg-muted/50 transition-colors">
                       <td className="px-4 py-3 text-xs text-muted-foreground whitespace-nowrap">
-                        {new Date(log.timestamp).toLocaleString()}
+                        {formatDateTime(log.timestamp)}
                       </td>
                       <td className="px-4 py-3 text-sm text-foreground">
                         {log.user?.username || <span className="text-muted-foreground">النظام</span>}

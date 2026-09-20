@@ -11,6 +11,13 @@ interface ProductModalProps { isOpen: boolean; onClose: () => void; product?: Pr
 const ProductModal: React.FC<ProductModalProps> = ({ isOpen, onClose, product, categories }) => {
   const queryClient = useQueryClient();
   const isEditing = !!product;
+  // Auto-generated SKU suggestion for new records (readonly display field).
+  const { data: suggestedSku } = useQuery({
+    queryKey: ['nextProductCode', isOpen],
+    queryFn: inventoryApi.nextProductCode,
+    enabled: isOpen && !isEditing,
+    staleTime: 0,
+  });
   const [sku, setSku] = useState(product?.sku || '');
   const [name, setName] = useState(product?.name || '');
   const [description, setDescription] = useState(product?.description || '');
@@ -36,7 +43,7 @@ const ProductModal: React.FC<ProductModalProps> = ({ isOpen, onClose, product, c
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault(); setError(null);
-    const data: CreateProductRequest = { sku: sku.trim(), name: name.trim(), description: description.trim() || null, categoryId, unitOfMeasure, purchasePrice: parseFloat(purchasePrice) || 0, sellingPrice: parseFloat(sellingPrice) || 0, minStockLevel: parseFloat(minStockLevel) || 0, isActive };
+    const data: CreateProductRequest = { sku: isEditing ? sku.trim() : null, name: name.trim(), description: description.trim() || null, categoryId, unitOfMeasure, purchasePrice: parseFloat(purchasePrice) || 0, sellingPrice: parseFloat(sellingPrice) || 0, minStockLevel: parseFloat(minStockLevel) || 0, isActive };
     if (isEditing && product) updateMutation.mutate({ id: product.id, data }); else createMutation.mutate(data);
   };
 
@@ -54,29 +61,38 @@ const ProductModal: React.FC<ProductModalProps> = ({ isOpen, onClose, product, c
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
           {error && <div className="p-3 bg-destructive/10 border border-destructive/30 rounded-lg text-destructive text-sm">{error}</div>}
           <div className="grid grid-cols-2 gap-4">
-            <div><label className="block text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1.5">رمز الصنف</label>
-              <input type="text" required value={sku} onChange={e => setSku(e.target.value)} disabled={isEditing} placeholder="مثال: WGT-001" className="w-full px-4 py-2.5 bg-input border-border rounded-lg text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring text-sm disabled:opacity-50 disabled:cursor-not-allowed" /></div>
-            <div><label className="block text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1.5">الفئة</label>
+            <div><label className="block text-xs font-semibold tracking-wider text-muted-foreground mb-1.5">رمز الصنف</label>
+              <input
+                type="text"
+                value={isEditing ? sku : (suggestedSku || '...')}
+                onChange={e => setSku(e.target.value)}
+                readOnly={!isEditing}
+                placeholder="PRD-0001"
+                title={isEditing ? 'الرمز غير قابل للتعديل' : 'يتم توليد الرمز تلقائياً'}
+                className="w-full px-4 py-2.5 bg-muted/50 border-border rounded-lg text-foreground text-sm cursor-not-allowed focus:outline-none"
+              />
+              {!isEditing && <p className="text-[10px] text-muted-foreground mt-1">يتم توليد الرمز تلقائياً</p>}</div>
+            <div><label className="block text-xs font-semibold tracking-wider text-muted-foreground mb-1.5">الفئة</label>
               <select required value={categoryId} onChange={e => setCategoryId(e.target.value)} className="w-full px-4 py-2.5 bg-input border-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-ring text-sm">
                 <option value="">اختر الفئة...</option>{categories.filter(c => c.isActive).map(c => <option key={c.id} value={c.id}>{c.code} — {c.name}</option>)}
               </select></div>
           </div>
-          <div><label className="block text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1.5">اسم الصنف</label>
+          <div><label className="block text-xs font-semibold tracking-wider text-muted-foreground mb-1.5">اسم الصنف</label>
             <input type="text" required value={name} onChange={e => setName(e.target.value)} placeholder="مثال: فأرة لاسلكية" className="w-full px-4 py-2.5 bg-input border-border rounded-lg text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring text-sm" /></div>
-          <div><label className="block text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1.5">الوصف</label>
+          <div><label className="block text-xs font-semibold tracking-wider text-muted-foreground mb-1.5">الوصف</label>
             <input type="text" value={description} onChange={e => setDescription(e.target.value)} placeholder="وصف اختياري" className="w-full px-4 py-2.5 bg-input border-border rounded-lg text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring text-sm" /></div>
           <div className="grid grid-cols-2 gap-4">
-            <div><label className="block text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1.5">وحدة القياس</label>
+            <div><label className="block text-xs font-semibold tracking-wider text-muted-foreground mb-1.5">وحدة القياس</label>
               <select value={unitOfMeasure} onChange={e => setUnitOfMeasure(e.target.value)} className="w-full px-4 py-2.5 bg-input border-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-ring text-sm">
                 {uomOptions.map(u => <option key={u} value={u}>{u} ({uomAr[u]})</option>)}
               </select></div>
-            <div><label className="block text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1.5">الحد الأدنى للمخزون</label>
+            <div><label className="block text-xs font-semibold tracking-wider text-muted-foreground mb-1.5">الحد الأدنى للمخزون</label>
               <input type="number" min="0" step="0.01" value={minStockLevel} onChange={e => setMinStockLevel(e.target.value)} className="w-full px-4 py-2.5 bg-input border-border rounded-lg text-foreground placeholder-muted-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring" /></div>
           </div>
           <div className="grid grid-cols-2 gap-4">
-            <div><label className="block text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1.5">سعر الشراء (د.ل)</label>
+            <div><label className="block text-xs font-semibold tracking-wider text-muted-foreground mb-1.5">سعر الشراء (د.ل)</label>
               <input type="number" min="0" step="0.0001" value={purchasePrice} onChange={e => setPurchasePrice(e.target.value)} className="w-full px-4 py-2.5 bg-input border-border rounded-lg text-foreground placeholder-muted-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring" /></div>
-            <div><label className="block text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1.5">سعر البيع (د.ل)</label>
+            <div><label className="block text-xs font-semibold tracking-wider text-muted-foreground mb-1.5">سعر البيع (د.ل)</label>
               <input type="number" min="0" step="0.0001" value={sellingPrice} onChange={e => setSellingPrice(e.target.value)} className="w-full px-4 py-2.5 bg-input border-border rounded-lg text-foreground placeholder-muted-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring" /></div>
           </div>
           <label className="flex items-center gap-2 cursor-pointer">
@@ -126,7 +142,7 @@ export const Products: React.FC = () => {
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="bg-muted/40 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                <tr className="bg-muted/40 text-[10px] font-semibold tracking-wider text-muted-foreground">
                   <th className="px-5 py-3 text-right">رمز الصنف</th><th className="px-5 py-3 text-right">الاسم</th><th className="px-5 py-3 text-right">الفئة</th><th className="px-5 py-3 text-center">وحدة القياس</th><th className="px-5 py-3 text-left">سعر الشراء</th><th className="px-5 py-3 text-left">سعر البيع</th><th className="px-5 py-3 text-left">المخزون</th><th className="px-5 py-3 text-center">الحالة</th><th className="px-5 py-3 text-center">الإجراء</th>
                 </tr>
               </thead>

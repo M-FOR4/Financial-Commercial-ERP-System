@@ -20,29 +20,38 @@ public class SalesTests
 
     private static async Task SeedAccountsAndProducts(AppDbContext context)
     {
-        // Seed COA accounts needed for sales posting
-        var arAccount = new Account { Code = "1130", Name = "Accounts Receivable", Type = AccountType.Asset, IsHeader = false };
-        var salesAccount = new Account { Code = "4100", Name = "Sales Revenue", Type = AccountType.Revenue, IsHeader = false };
-        var cogsAccount = new Account { Code = "5100", Name = "COGS", Type = AccountType.Expense, IsHeader = false };
-        var invAccount = new Account { Code = "1140", Name = "Inventory", Type = AccountType.Asset, IsHeader = false };
-        context.Accounts.AddRange(arAccount, salesAccount, cogsAccount, invAccount);
+        var company = new Company { Id = Guid.NewGuid(), Name = "Test Co", DefaultCurrency = "LYD" };
+        context.Companies.Add(company);
 
-        var category = new Category { Code = "GEN", Name = "General" };
+        var fiscalYear = new FiscalYear { Id = Guid.NewGuid(), CompanyId = company.Id, Name = "2026", StartDate = new DateTime(2026, 1, 1), EndDate = new DateTime(2026, 12, 31), IsActive = true };
+        context.FiscalYears.Add(fiscalYear);
+
+        // Seed COA accounts needed for sales posting
+        var arAccount = new Account { CompanyId = company.Id, Code = "1130", Name = "Accounts Receivable", Type = AccountType.Asset, IsHeader = false };
+        var salesAccount = new Account { CompanyId = company.Id, Code = "4100", Name = "Sales Revenue", Type = AccountType.Revenue, IsHeader = false };
+        var salesDiscountAccount = new Account { CompanyId = company.Id, Code = "4110", Name = "Sales Discount", Type = AccountType.Expense, IsHeader = false };
+        var vatPayableAccount = new Account { CompanyId = company.Id, Code = "2200", Name = "VAT Payable", Type = AccountType.Liability, IsHeader = false };
+        var cogsAccount = new Account { CompanyId = company.Id, Code = "5100", Name = "COGS", Type = AccountType.Expense, IsHeader = false };
+        var invAccount = new Account { CompanyId = company.Id, Code = "1140", Name = "Inventory", Type = AccountType.Asset, IsHeader = false };
+        context.Accounts.AddRange(arAccount, salesAccount, salesDiscountAccount, vatPayableAccount, cogsAccount, invAccount);
+
+        var category = new Category { CompanyId = company.Id, Code = "GEN", Name = "General" };
         context.Categories.Add(category);
         await context.SaveChangesAsync();
 
         var product = new Product
         {
+            CompanyId = company.Id,
             SKU = "WIDGET-001", Name = "Widget", CategoryId = category.Id,
             UnitOfMeasure = "Piece", PurchasePrice = 10m, SellingPrice = 20m,
             CurrentStock = 100m, MinStockLevel = 10m
         };
         context.Products.Add(product);
 
-        var warehouse = new Warehouse { Code = "WH-MAIN", Name = "Main Warehouse", Location = "Tripoli" };
+        var warehouse = new Warehouse { CompanyId = company.Id, Code = "WH-MAIN", Name = "Main Warehouse", Location = "Tripoli" };
         context.Warehouses.Add(warehouse);
 
-        var customer = new Customer { Code = "CUST-001", Name = "Test Customer" };
+        var customer = new Customer { CompanyId = company.Id, Code = "CUST-001", Name = "Test Customer" };
         context.Customers.Add(customer);
 
         await context.SaveChangesAsync();
